@@ -55,8 +55,8 @@ if (!match) {
   error.statusCode = 401;
   throw error;
 }
-  const accessToken = generateAccessToken({id: user._id, role: "user"});
-  const refreshToken = generateRefreshToken({id: user._id});
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
 
   await repo.deleteRefreshToken(user._id);
 
