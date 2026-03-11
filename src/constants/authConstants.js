@@ -1,0 +1,10 @@
+exports.OTP_EXPIRY_TIME = 5 * 60 * 1000; 
+
+exports.BCRYPT_SALT_ROUNDS = 10;
+
+exports.ACCESS_TOKEN_EXPIRY = "15m";
+
+exports.REFRESH_TOKEN_EXPIRY = "7d";
+
+
+exports.STAFF_ACCESS_TOKEN_EXPIRY = "8h";
