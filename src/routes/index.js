@@ -7,6 +7,7 @@ const doctorRoutes = require("../modules/doctor/doctor.routes");
 const frontdeskRoutes = require("../modules/frontdesk/frontdesk.routes");
 const labRoutes = require("../modules/lab/lab.routes");
 const pharmacyRoutes = require("../modules/pharmacy/pharmacy.routes");
+const addressRoutes = require("../modules/address/address.routes");
 
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
@@ -16,6 +17,8 @@ router.use("/frontdesk", frontdeskRoutes);
 router.use("/lab", labRoutes);
 router.use("/pharmacy", pharmacyRoutes);
 router.use("/users", userRoutes);
+
+router.use("/addresses", addressRoutes);
 
 
 module.exports = router;
