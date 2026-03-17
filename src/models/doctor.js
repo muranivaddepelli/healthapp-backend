@@ -18,10 +18,44 @@ const doctorSchema = new mongoose.Schema({
     required: true
   },
 
+  specialization: {
+    type: String
+  },
 
-  specialization: String,
+  experience: {
+    type: Number
+  },
 
-  experience: Number,
+  education: {
+    type: String
+  },
+
+  consultationFee: {
+  type: Number,
+  required: true
+},
+
+  about: {
+    type: String
+  },
+
+  servicesOffered: [
+    {
+      type: String
+    }
+  ],
+
+  clinicLocation: {
+    type: String
+  },
+
+  availabilityLocation: {
+    type: String
+  },
+
+  profileImage: {
+    type: String
+  },
 
   isActive: {
     type: Boolean,

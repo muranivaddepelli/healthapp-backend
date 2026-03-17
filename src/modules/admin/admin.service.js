@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const repo = require("./admin.repository");
 const {generateStaffAccessToken} = require("../../utils/token");
-
+const {getCoordinates} = require("../../utils/geocode");
 
 exports.login = async (username, password) => {
 
@@ -35,7 +35,18 @@ exports.login = async (username, password) => {
 };
 
 
-exports.createHospital = (data) => repo.createHospital(data);
+exports.createHospital = async (data) => {
+
+  const coords = await getCoordinates(data.address);
+
+  return repo.createHospital({
+    ...data,
+location: {
+      type: "Point",
+      coordinates: [coords.longitude, coords.latitude]
+    }  });
+
+};
 
 exports.getHospitals = () => repo.getHospitals();
 

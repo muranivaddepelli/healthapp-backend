@@ -59,14 +59,32 @@ exports.deleteHospital = async (req, res) => {
 
 
 exports.createDoctor = async (req, res) => {
-  try {
-    const data = await service.createDoctor(req.body);
-    res.json(data);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
 
+  try {
+
+    const data = req.body;
+
+    if (req.file) {
+      data.profileImage = req.file.path;
+    }
+
+    const doctor = await service.createDoctor(data);
+
+    res.json({
+      success: true,
+      data: doctor
+    });
+
+  } catch (err) {
+
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+
+};
 exports.getDoctors = async (req, res) => {
   const data = await service.getDoctors();
   res.json(data);

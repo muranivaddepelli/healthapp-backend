@@ -16,7 +16,6 @@ router.use("/doctor", doctorRoutes);
 router.use("/frontdesk", frontdeskRoutes);
 router.use("/lab", labRoutes);
 router.use("/pharmacy", pharmacyRoutes);
-router.use("/users", userRoutes);
 
 router.use("/addresses", addressRoutes);
 

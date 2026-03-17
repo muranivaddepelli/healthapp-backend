@@ -127,3 +127,163 @@ exports.deleteProfilePhoto = async (req, res) => {
 
   }
 };
+
+
+
+exports.getNearbyHospitals = async (req, res) => {
+
+  try {
+
+    const hospitals = await service.getNearbyHospitals(
+      req.params.addressId
+    );
+
+    res.json({
+      success: true,
+      data: hospitals
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+
+  }
+
+};
+
+
+
+exports.getDoctors = async (req, res) => {
+
+  try {
+
+    const { specialization, location } = req.query;
+
+    const doctors = await service.getDoctors(
+      specialization,
+      location
+    );
+
+    res.json({
+      success: true,
+      data: doctors
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+
+  }
+
+};
+
+
+
+exports.getDoctorDetails = async (req, res) => {
+  try {
+
+    const { doctorId } = req.params;
+
+    const data = await service.getDoctorDetails(doctorId);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+};
+
+
+exports.getDoctorSlots = async (req, res) => {
+  try {
+
+    const { doctorId } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date is required"
+      });
+    }
+
+    const slots = await service.getDoctorSlots(doctorId, date);
+
+    res.json({
+      success: true,
+      data: slots
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
+  }
+};
+
+
+exports.addToCart = async (req, res) => {
+  try {
+    const data = await service.addToCart(req.user.id, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getCart = async (req, res) => {
+  try {
+    const data = await service.getCart(req.user.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.updateQuantity = async (req, res) => {
+  try {
+    const data = await service.updateQuantity(
+      req.user.id,
+      req.params.id,
+      req.body.quantity
+    );
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.deleteCart = async (req, res) => {
+  try {
+    await service.deleteCart(req.user.id, req.params.id);
+    res.json({ success: true, message: "Item removed" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.checkout = async (req, res) => {
+  try {
+    const data = await service.checkout(req.user.id, req.body);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

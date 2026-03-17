@@ -1,5 +1,7 @@
 const router = require("express").Router();
 const controller = require("./admin.controller");
+// const upload = require("../../middleware/uploadMiddleware");
+const upload = require("../../middleware/upload");
 
 
 const authMiddleware= require("../../middleware/authMiddleware");
@@ -17,7 +19,11 @@ router.get("/hospitals/:id", controller.getHospitalById);
 router.put("/hospitals/:id", controller.updateHospital);
 router.delete("/hospitals/:id", controller.deleteHospital);
 
-router.post("/doctors", controller.createDoctor);
+router.post(
+  "/doctors",
+  upload.single("profileImage"),
+  controller.createDoctor
+);
 router.get("/doctors", controller.getDoctors);
 router.get("/doctors/:id", controller.getDoctorById);
 router.put("/doctors/:id", controller.updateDoctor);

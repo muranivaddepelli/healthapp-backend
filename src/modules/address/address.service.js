@@ -1,13 +1,29 @@
 const repo = require("./address.repository");
+const {getCoordinates} = require("../../utils/geocode");
 
 const formatAddress = (address) => {
   return `${address.house}, ${address.area}, ${address.locality} - ${address.pincode}`;
 };
 
+
 exports.addAddress = async (userId, data) => {
+
+    data.addressType = data.addressType?.toLowerCase();
+
 
   if (data.isDefault) {
     await repo.clearDefault(userId);
+  }
+
+  if (!data.latitude || !data.longitude) {
+
+    const addressString =
+      `${data.house}, ${data.area}, ${data.locality}, ${data.pincode}, India`;
+
+    const coords = await getCoordinates(addressString);
+
+    data.latitude = coords.latitude;
+    data.longitude = coords.longitude;
   }
 
   const address = await repo.createAddress({
@@ -20,6 +36,7 @@ exports.addAddress = async (userId, data) => {
     fullAddress: formatAddress(address)
   };
 };
+
 
 exports.getAddresses = async (userId, search) => {
 
