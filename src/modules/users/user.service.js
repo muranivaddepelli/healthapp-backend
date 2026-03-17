@@ -87,7 +87,6 @@ return doctors.map(d => ({
 
 
 
-// 🔹 1️⃣ Get Doctor Details
 exports.getDoctorDetails = async (doctorId) => {
 
   const doctor = await Doctor.findById(doctorId)
@@ -120,7 +119,6 @@ exports.getDoctorDetails = async (doctorId) => {
 
 
 
-// 🔹 2️⃣ Get Doctor Slots
 exports.getDoctorSlots = async (doctorId, date) => {
 
   const selectedDate = new Date(date + "T00:00:00.000Z");
@@ -183,7 +181,6 @@ exports.getDoctorSlots = async (doctorId, date) => {
 
 
 
-// ✅ ADD TO CART
 exports.addToCart = async (userId, data) => {
 
   const { doctorId, date, time } = data;
@@ -215,7 +212,6 @@ exports.addToCart = async (userId, data) => {
 };
 
 
-// ✅ GET CART
 exports.getCart = async (userId) => {
 
   const carts = await Cart.find({ userId, status: "active" })
@@ -238,7 +234,6 @@ exports.getCart = async (userId) => {
 };
 
 
-// ✅ UPDATE QUANTITY
 exports.updateQuantity = async (userId, cartId, quantity) => {
 
   if (quantity < 1) throw new Error("Invalid quantity");
@@ -251,7 +246,6 @@ exports.updateQuantity = async (userId, cartId, quantity) => {
 };
 
 
-// ✅ DELETE CART
 exports.deleteCart = async (userId, cartId) => {
 
   return Cart.findOneAndDelete({
@@ -261,7 +255,6 @@ exports.deleteCart = async (userId, cartId) => {
 };
 
 
-// ✅ CHECKOUT (OFFLINE)
 exports.checkout = async (userId, data) => {
 
   const { modeOfPayment } = data;
@@ -276,7 +269,6 @@ exports.checkout = async (userId, data) => {
 
   for (let item of cartItems) {
 
-    // 🔥 Prevent double booking
     const exists = await Appointment.findOne({
       doctorId: item.doctorId,
       date: item.date,
