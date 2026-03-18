@@ -1,5 +1,6 @@
 const service = require("./doctor.service");
 const {logout} = require("../../utils/logout");
+const Appointment = require("../../models/appointment");  
 
 exports.login = async (req, res) => {
   try {
@@ -208,4 +209,37 @@ exports.getDoctorSlots = async (req, res) => {
 
   }
 
+};
+
+
+
+
+exports.getDoctorAppointments = async (req, res) => {
+  try {
+    const doctorId = req.user.id; // from JWT
+
+    const { status, date } = req.query;
+
+    let filter = { doctorId };
+
+    if (status) filter.status = status;
+    if (date) filter.date = date;
+
+    const appointments = await Appointment.find(filter)
+.populate("userId", "firstName lastName email phone")    
+  .sort({ date: 1, time: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: appointments.length,
+      data: appointments
+    });
+
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+  }
 };

@@ -8,10 +8,15 @@ const cartSchema = new mongoose.Schema({
     required: true
   },
 
+  type: {
+    type: String,
+    enum: ["consultation", "diagnostic"],
+    required: true
+  },
+
   doctorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Doctor",
-    required: true
+    ref: "Doctor"
   },
 
   hospitalId: {
@@ -19,10 +24,25 @@ const cartSchema = new mongoose.Schema({
     ref: "Hospital"
   },
 
+  testId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "DiagnosticTest"
+  },
+
+  slotId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "TestSlot"
+  },
+
   date: Date,
   time: String,
 
-  consultationFee: Number,
+  price: Number,
+
+  mode: {
+    type: String,
+    enum: ["home", "walk-in"]
+  },
 
   quantity: {
     type: Number,

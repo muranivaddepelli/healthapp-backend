@@ -1,7 +1,5 @@
 exports.logout = async (req, res) => {
-
   try {
-
     return res.json({
       message: "Logged out successfully"
     });

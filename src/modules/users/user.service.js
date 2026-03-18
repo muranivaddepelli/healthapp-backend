@@ -6,8 +6,8 @@ const DoctorException = require("../../models/doctorException");
 const DoctorAvailability = require("../../models/doctorAvailability");
 const Cart = require("../../models/cart");
 const Appointment = require("../../models/appointment");
-
-
+const TestSlot = require("../../models/testSlot");
+const DiagnosticTest = require("../../models/diagnosticTest");
 
 
 exports.getProfile = async (userId) => {
@@ -181,56 +181,114 @@ exports.getDoctorSlots = async (doctorId, date) => {
 
 
 
+
 exports.addToCart = async (userId, data) => {
 
-  const { doctorId, date, time } = data;
+  const { type } = data;
 
-  const doctor = await Doctor.findById(doctorId).populate("hospitalId");
+  //CONSULTATION FLOW
+  if (type === "consultation") {
 
-  if (!doctor) throw new Error("Doctor not found");
+    const { doctorId, date, time } = data;
 
-  const existing = await Cart.findOne({
-    userId,
-    doctorId,
-    date,
-    time,
-    status: "active"
-  });
+    const doctor = await Doctor.findById(doctorId).populate("hospitalId");
 
-  if (existing) {
-    throw new Error("Slot already in cart");
+    if (!doctor) throw new Error("Doctor not found");
+
+    const existing = await Cart.findOne({
+      userId,
+      doctorId,
+      date,
+      time,
+      status: "active"
+    });
+
+    if (existing) {
+      throw new Error("Slot already in cart");
+    }
+
+    return Cart.create({
+      userId,
+      type: "consultation",
+      doctorId,
+      hospitalId: doctor.hospitalId,
+      date,
+      time,
+      price: doctor.consultationFee
+    });
   }
 
-  return Cart.create({
-    userId,
-    doctorId,
-    hospitalId: doctor.hospitalId,
-    date,
-    time,
-    consultationFee: doctor.consultationFee
-  });
+  //DIAGNOSTIC FLOW
+  if (type === "diagnostic") {
+
+    const { testId, slotId, date, time, mode } = data;
+
+    const test = await DiagnosticTest.findById(testId);
+    if (!test) throw new Error("Test not found");
+
+    const slot = await TestSlot.findById(slotId);
+    if (!slot || slot.isBooked) {
+      throw new Error("Slot not available");
+    }
+
+    return Cart.create({
+      userId,
+      type: "diagnostic",
+      testId,
+      slotId,
+      date,
+      time,
+      mode,
+      price: test.price
+    });
+  }
+
+  throw new Error("Invalid cart type");
 };
+
+
 
 
 exports.getCart = async (userId) => {
 
   const carts = await Cart.find({ userId, status: "active" })
     .populate("doctorId", "username specialization profileImage")
-    .populate("hospitalId", "hospitalName");
+    .populate("hospitalId", "hospitalName")
+    .populate("testId", "name price")
+    .populate("slotId", "time date");
 
-  return carts.map(item => ({
-    cartId: item._id,
-    doctorName: item.doctorId.username,
-    specialization: item.doctorId.specialization,
-    profileImage: item.doctorId.profileImage,
-    hospitalName: item.hospitalId.hospitalName,
-    fee: item.consultationFee,
-    quantity: item.quantity,
-    total: item.consultationFee * item.quantity,
-    date: item.date,
-    time: item.time,
-    modeOfPayment: item.modeOfPayment
-  }));
+  return carts.map(item => {
+
+    //CONSULTATION
+    if (item.type === "consultation") {
+      return {
+        cartId: item._id,
+        type: "consultation",
+        doctorName: item.doctorId?.username,
+        specialization: item.doctorId?.specialization,
+        hospitalName: item.hospitalId?.hospitalName,
+        fee: item.price,
+        quantity: item.quantity,
+        total: item.price * item.quantity,
+        date: item.date,
+        time: item.time
+      };
+    }
+
+    //DIAGNOSTIC
+    if (item.type === "diagnostic") {
+      return {
+        cartId: item._id,
+        type: "diagnostic",
+        testName: item.testId?.name,
+        price: item.price,
+        mode: item.mode,
+        date: item.date,
+        time: item.time
+      };
+    }
+
+  });
 };
 
 
@@ -255,6 +313,8 @@ exports.deleteCart = async (userId, cartId) => {
 };
 
 
+const DiagnosticOrder = require("../../models/diagnosticOrder");
+
 exports.checkout = async (userId, data) => {
 
   const { modeOfPayment } = data;
@@ -265,36 +325,70 @@ exports.checkout = async (userId, data) => {
     throw new Error("Cart is empty");
   }
 
-  const appointments = [];
+  const results = [];
 
   for (let item of cartItems) {
 
-    const exists = await Appointment.findOne({
-      doctorId: item.doctorId,
-      date: item.date,
-      time: item.time
-    });
+    //CONSULTATION
+    if (item.type === "consultation") {
 
-    if (exists) {
-      throw new Error("Slot already booked");
+      const exists = await Appointment.findOne({
+        doctorId: item.doctorId,
+        date: item.date,
+        time: item.time
+      });
+
+      if (exists) {
+        throw new Error("Slot already booked");
+      }
+
+      const appointment = await Appointment.create({
+        userId,
+        doctorId: item.doctorId,
+        hospitalId: item.hospitalId,
+        date: item.date,
+        time: item.time,
+        consultationFee: item.price, // ✅ FIXED
+        modeOfPayment: modeOfPayment || "offline",
+        paymentStatus: "pending"
+      });
+
+      results.push({
+        type: "consultation",
+        data: appointment
+      });
     }
 
-    const appointment = await Appointment.create({
-      userId,
-      doctorId: item.doctorId,
-      hospitalId: item.hospitalId,
-      date: item.date,
-      time: item.time,
-      consultationFee: item.consultationFee,
-      modeOfPayment: modeOfPayment || "offline",
-      paymentStatus: "pending"
-    });
+    //DIAGNOSTIC
+    if (item.type === "diagnostic") {
 
-    appointments.push(appointment);
+      const slot = await TestSlot.findById(item.slotId);
+
+      if (!slot || slot.isBooked) {
+        throw new Error("Slot not available");
+      }
+
+      const order = await DiagnosticOrder.create({
+        userId,
+        testId: item.testId,
+        slotId: item.slotId,
+        date: item.date,
+        time: item.time,
+        mode: item.mode
+      });
+
+      slot.isBooked = true;
+      await slot.save();
+
+      results.push({
+        type: "diagnostic",
+        data: order
+      });
+    }
 
     item.status = "paid";
     await item.save();
   }
 
-  return appointments;
+  return results;
 };

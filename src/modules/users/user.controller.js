@@ -1,5 +1,8 @@
 const service = require("./user.service");
 const cloudinary = require("../../config/cloudinary");
+const Appointment=require("../../models/appointment");
+const DiagnosticTest = require("../../models/diagnosticTest");
+const TestSlot = require("../../models/testSlot");
 
 exports.getProfile = async (req, res) => {
 
@@ -285,5 +288,101 @@ exports.checkout = async (req, res) => {
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+exports.getUserAppointments = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const appointments = await Appointment.find({ userId })
+      .populate("doctorId", "username specialization")
+.populate("hospitalId", "hospitalName address location")    
+  .sort({ date: 1, time: 1 });
+
+    const formatted = appointments.map((a) => ({
+      _id: a._id,
+
+      doctorName: a.doctorId
+        ? ` ${a.doctorId.username}`   
+        : null,
+      specialization: a.doctorId?.specialization,
+      hospitalName: a.hospitalId?.hospitalName, 
+address: a.hospitalId?.address,
+      date: a.date,
+      time: a.time,
+      status: a.status,
+      paymentStatus: a.paymentStatus,
+      consultationFee: a.consultationFee
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: formatted.length,
+      data: formatted
+    });
+
+  } catch (error) {
+    console.error("Error fetching user appointments:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+  }
+};
+
+
+
+exports.getTests = async (req, res) => {
+  try {
+
+      const { type } = req.query;
+
+    let filter = {};
+
+    if (type === "home") {
+      filter.type = { $in: ["home", "both"] };
+    }
+
+    if (type === "walk-in") {
+      filter.type = { $in: ["walk-in", "both"] };
+    }
+
+    const tests = await DiagnosticTest.find(filter);
+
+    res.json({
+      success: true,
+      data: tests
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.getSlots = async (req, res) => {
+  try {
+    const { testId, date } = req.query;
+
+    const slots = await TestSlot.find({
+      testId,
+      date,
+      isBooked: false
+    });
+
+    res.json({
+      success: true,
+      data: slots
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };

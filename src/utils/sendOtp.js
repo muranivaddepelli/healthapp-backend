@@ -4,10 +4,7 @@ const sendEmail = require("./sendEmail");
 const repo = require("../modules/auth/auth.repository");
 const { OTP_EXPIRY_TIME, BCRYPT_SALT_ROUNDS } = require("../constants/authConstants");
 
-
-
 const sendOtpToEmail = async (email, purpose) => {
-
 
   const otp = generateOtp();
   console.log("Generated OTP:", otp);

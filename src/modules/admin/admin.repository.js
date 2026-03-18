@@ -10,8 +10,6 @@ exports.findAdmin = (username) => {
   return Admin.findOne({ username });
 };
 
-
-
 exports.createHospital = (data) => Hospital.create(data);
 
 exports.getHospitals = () => Hospital.find();

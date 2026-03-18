@@ -58,10 +58,6 @@ const addressSchema = new mongoose.Schema(
 { timestamps: true }
 );
 
-
-
-
-/* Index for faster search */
 addressSchema.index({ userId: 1, isDefault: 1 });
 
 module.exports = mongoose.model("Address", addressSchema);

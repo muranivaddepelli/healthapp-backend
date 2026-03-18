@@ -10,7 +10,6 @@ const hospitalSchema = new mongoose.Schema({
   address: String,
 
   // latitude: Number,
-
   // longitude: Number,
 
   location: {

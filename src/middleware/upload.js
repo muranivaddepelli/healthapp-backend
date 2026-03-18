@@ -10,7 +10,6 @@ const storage = new CloudinaryStorage({
   }
 });
 
-// File type validation
 const fileFilter = (req, file, cb) => {
 
   const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];

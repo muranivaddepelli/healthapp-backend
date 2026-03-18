@@ -44,3 +44,10 @@ router.patch("/cart/:id/quantity", authMiddleware, controller.updateQuantity);
 router.delete("/cart/:id", authMiddleware, controller.deleteCart);
 
 router.post("/checkout", authMiddleware, controller.checkout);
+
+
+router.get("/appointments", authMiddleware, controller.getUserAppointments);
+
+router.get("/diagnostic/tests",authMiddleware,controller.getTests);
+
+router.get("/diagnostic/slots",authMiddleware,controller.getSlots);
