@@ -1,6 +1,9 @@
 const bcrypt = require("bcryptjs");
 const repo = require("./pharmacy.repository");
 const { generateStaffAccessToken } = require("../../utils/token");
+const Medicine = require("../../models/medicine");
+const openfda = require("../../../services/openfda.service");
+
 
 exports.login = async (hospitalName, username, password) => {
 
@@ -39,4 +42,33 @@ exports.login = async (hospitalName, username, password) => {
     pharmacyId: pharmacy._id
   };
 
+};
+
+
+
+
+
+exports.searchOpenFDA = async (search) => {
+  return openfda.search(search);
+};
+
+exports.addMedicine = async (pharmacyId, data) => {
+
+  return Medicine.create({
+    ...data,
+    pharmacyId
+  });
+};
+
+exports.updateMedicine = async (id, pharmacyId, data) => {
+
+  return Medicine.findOneAndUpdate(
+    { _id: id, pharmacyId },
+    data,
+    { new: true }
+  );
+};
+
+exports.getMyMedicines = async (pharmacyId) => {
+  return Medicine.find({ pharmacyId });
 };

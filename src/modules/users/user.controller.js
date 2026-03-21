@@ -386,3 +386,33 @@ exports.getSlots = async (req, res) => {
     });
   }
 };
+
+
+
+exports.getMedicines = async (req, res) => {
+  const data = await service.getMedicines(req.query.search || "");
+  res.json({ success: true, data });
+};
+
+exports.addPharmacyCart = async (req, res) => {
+  const data = await service.addPharmacyCart(req.user.id, req.body);
+  res.json({ success: true, data });
+};
+
+exports.getPharmacyCart = async (req, res) => {
+  const data = await service.getPharmacyCart(req.user.id);
+  res.json({ success: true, data });
+};
+
+exports.checkout = async (req, res) => {
+  const data = await service.checkout(
+    req.user.id,
+    req.body.paymentMethod
+  );
+  res.json({ success: true, data });
+};
+
+exports.addReview = async (req, res) => {
+  await service.addReview(req.user.id, req.body);
+  res.json({ success: true });
+};

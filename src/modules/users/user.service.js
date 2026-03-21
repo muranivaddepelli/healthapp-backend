@@ -8,6 +8,13 @@ const Cart = require("../../models/cart");
 const Appointment = require("../../models/appointment");
 const TestSlot = require("../../models/testSlot");
 const DiagnosticTest = require("../../models/diagnosticTest");
+const Medicine = require("../../models/medicine");
+const PharmacyCart = require("../../models/pharmacyCart");
+const PharmacyOrder = require("../../models/pharmacyOrder");
+const Review = require("../../models/review");
+const DiagnosticOrder = require("../../models/diagnosticOrder");
+
+
 
 
 exports.getProfile = async (userId) => {
@@ -186,7 +193,6 @@ exports.addToCart = async (userId, data) => {
 
   const { type } = data;
 
-  //CONSULTATION FLOW
   if (type === "consultation") {
 
     const { doctorId, date, time } = data;
@@ -218,7 +224,6 @@ exports.addToCart = async (userId, data) => {
     });
   }
 
-  //DIAGNOSTIC FLOW
   if (type === "diagnostic") {
 
     const { testId, slotId, date, time, mode } = data;
@@ -313,7 +318,6 @@ exports.deleteCart = async (userId, cartId) => {
 };
 
 
-const DiagnosticOrder = require("../../models/diagnosticOrder");
 
 exports.checkout = async (userId, data) => {
 
@@ -391,4 +395,98 @@ exports.checkout = async (userId, data) => {
   }
 
   return results;
+};
+
+
+
+
+exports.getMedicines = async (search) => {
+  return Medicine.find({
+    name: { $regex: search, $options: "i" },
+    stock: { $gt: 0 }
+  });
+};
+
+exports.addPharmacyCart = async (userId, data) => {
+
+  const { medicineId, quantity } = data;
+
+  const medicine = await Medicine.findById(medicineId);
+
+  if (!medicine || medicine.stock < quantity) {
+    throw new Error("Out of stock");
+  }
+
+  return PharmacyCart.create({
+    userId,
+    medicineId,
+    quantity,
+    price: medicine.price
+  });
+};
+
+exports.getPharmacyCart = async (userId) => {
+  return PharmacyCart.find({ userId, status: "active" })
+    .populate("medicineId");
+};
+
+exports.checkout = async (userId, paymentMethod) => {
+
+  const cartItems = await PharmacyCart.find({
+    userId,
+    status: "active"
+  }).populate("medicineId");
+
+  let total = 0;
+
+  const items = cartItems.map(i => {
+    total += i.price * i.quantity;
+
+    return {
+      medicineId: i.medicineId._id,
+      quantity: i.quantity,
+      price: i.price
+    };
+  });
+
+  const order = await PharmacyOrder.create({
+    userId,
+    items,
+    totalAmount: total,
+    paymentMethod
+  });
+
+  for (let item of cartItems) {
+
+    await Medicine.findByIdAndUpdate(item.medicineId._id, {
+      $inc: { stock: -item.quantity }
+    });
+
+    item.status = "ordered";
+    await item.save();
+  }
+
+  return order;
+};
+
+exports.addReview = async (userId, data) => {
+
+  const { medicineId, rating, comment } = data;
+
+  await Review.create({
+    userId,
+    medicineId,
+    rating,
+    comment
+  });
+
+  const reviews = await Review.find({ medicineId });
+
+  const avg =
+    reviews.reduce((a, b) => a + b.rating, 0) / reviews.length;
+
+  await Medicine.findByIdAndUpdate(medicineId, {
+    rating: avg,
+    reviewCount: reviews.length
+  });
 };
