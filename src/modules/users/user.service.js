@@ -13,6 +13,7 @@ const PharmacyCart = require("../../models/pharmacyCart");
 const PharmacyOrder = require("../../models/pharmacyOrder");
 const Review = require("../../models/review");
 const DiagnosticOrder = require("../../models/diagnosticOrder");
+const Prescription = require("../../models/prescription");
 
 
 
@@ -58,9 +59,6 @@ exports.getNearbyHospitals = async (addressId) => {
   }));
 
 };
-
-
-
 exports.getDoctors = async (specialization, location) => {
 
   const query = {};
@@ -90,10 +88,6 @@ return doctors.map(d => ({
   servicesOffered: d.servicesOffered
 }));
 };
-
-
-
-
 exports.getDoctorDetails = async (doctorId) => {
 
   const doctor = await Doctor.findById(doctorId)
@@ -103,7 +97,6 @@ exports.getDoctorDetails = async (doctorId) => {
   if (!doctor) {
     throw new Error("Doctor not found");
   }
-
   return {
     doctorId: doctor._id,
     doctorName: doctor.username,
@@ -120,12 +113,6 @@ exports.getDoctorDetails = async (doctorId) => {
     consultationFee: doctor.consultationFee
   };
 };
-
-
-
-
-
-
 exports.getDoctorSlots = async (doctorId, date) => {
 
   const selectedDate = new Date(date + "T00:00:00.000Z");
@@ -183,12 +170,6 @@ exports.getDoctorSlots = async (doctorId, date) => {
 
   return slots;
 };
-
-
-
-
-
-
 exports.addToCart = async (userId, data) => {
 
   const { type } = data;
@@ -250,12 +231,7 @@ exports.addToCart = async (userId, data) => {
 
   throw new Error("Invalid cart type");
 };
-
-
-
-
 exports.getCart = async (userId) => {
-
   const carts = await Cart.find({ userId, status: "active" })
     .populate("doctorId", "username specialization profileImage")
     .populate("hospitalId", "hospitalName")
@@ -295,8 +271,6 @@ exports.getCart = async (userId) => {
 
   });
 };
-
-
 exports.updateQuantity = async (userId, cartId, quantity) => {
 
   if (quantity < 1) throw new Error("Invalid quantity");
@@ -307,8 +281,6 @@ exports.updateQuantity = async (userId, cartId, quantity) => {
     { new: true }
   );
 };
-
-
 exports.deleteCart = async (userId, cartId) => {
 
   return Cart.findOneAndDelete({
@@ -316,9 +288,6 @@ exports.deleteCart = async (userId, cartId) => {
     userId
   });
 };
-
-
-
 exports.checkout = async (userId, data) => {
 
   const { modeOfPayment } = data;
@@ -396,17 +365,12 @@ exports.checkout = async (userId, data) => {
 
   return results;
 };
-
-
-
-
 exports.getMedicines = async (search) => {
   return Medicine.find({
     name: { $regex: search, $options: "i" },
     stock: { $gt: 0 }
   });
 };
-
 exports.addPharmacyCart = async (userId, data) => {
 
   const { medicineId, quantity } = data;
@@ -424,12 +388,10 @@ exports.addPharmacyCart = async (userId, data) => {
     price: medicine.price
   });
 };
-
 exports.getPharmacyCart = async (userId) => {
   return PharmacyCart.find({ userId, status: "active" })
     .populate("medicineId");
 };
-
 exports.checkout = async (userId, paymentMethod) => {
 
   const cartItems = await PharmacyCart.find({
@@ -468,7 +430,6 @@ exports.checkout = async (userId, paymentMethod) => {
 
   return order;
 };
-
 exports.addReview = async (userId, data) => {
 
   const { medicineId, rating, comment } = data;
@@ -488,5 +449,16 @@ exports.addReview = async (userId, data) => {
   await Medicine.findByIdAndUpdate(medicineId, {
     rating: avg,
     reviewCount: reviews.length
+  });
+};
+
+exports.uploadPrescription = async (userId, file, publicId, filename, notes) => {
+
+  return Prescription.create({
+    userId,
+    file,
+    publicId,
+    filename,
+    notes
   });
 };

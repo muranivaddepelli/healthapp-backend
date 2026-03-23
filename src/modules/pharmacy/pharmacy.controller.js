@@ -76,4 +76,41 @@ exports.getMyMedicines = async (req, res) => {
 };
 
 
+exports.getPrescriptions = async (req, res) => {
+  try {
+
+    const data = await service.getPrescriptions();
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.approvePrescription = async (req, res) => {
+  try {
+
+    const data = await service.approvePrescription(
+      req.params.id,
+      req.body
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.rejectPrescription = async (req, res) => {
+  try {
+    const data = await service.rejectPrescription(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
 exports.logout = logout; 

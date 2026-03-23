@@ -61,4 +61,8 @@ router.post("/pharmacy/checkout", authMiddleware, controller.checkout);
 
 router.post("/review", authMiddleware, controller.addReview);
 
+
+
+router.post("/pharmacy/prescription", authMiddleware,upload.single("file"),controller.uploadPrescription);
+
 module.exports = router;

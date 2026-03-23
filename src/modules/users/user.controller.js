@@ -416,3 +416,58 @@ exports.addReview = async (req, res) => {
   await service.addReview(req.user.id, req.body);
   res.json({ success: true });
 };
+
+
+exports.uploadPrescription = async (req, res) => {
+  try {
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Prescription file required"
+      });
+    }
+
+    if (req.file.mimetype !== 'application/pdf') {
+      return res.status(400).json({
+        message: "Only PDF files allowed"
+      });
+    }
+
+    const filename = req.file.originalname;
+    const publicId = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    const result = await new Promise((resolve, reject) => {
+
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "prescriptions",
+          public_id: publicId,
+          resource_type: "raw",
+          format: "pdf"
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
+
+    const data = await service.uploadPrescription(
+      req.user.id,
+      result.secure_url,
+      result.public_id,
+      filename,
+      req.body.notes
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
