@@ -3,6 +3,7 @@ const cloudinary = require("../../config/cloudinary");
 const Appointment=require("../../models/appointment");
 const DiagnosticTest = require("../../models/diagnosticTest");
 const TestSlot = require("../../models/testSlot");
+const Prescription = require("../../models/prescription");
 
 exports.getProfile = async (req, res) => {
 
@@ -418,6 +419,8 @@ exports.addReview = async (req, res) => {
 };
 
 
+
+
 exports.uploadPrescription = async (req, res) => {
   try {
 
@@ -427,14 +430,23 @@ exports.uploadPrescription = async (req, res) => {
       });
     }
 
-    if (req.file.mimetype !== 'application/pdf') {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/jpg"
+    ];
+
+    if (!allowedTypes.includes(req.file.mimetype)) {
       return res.status(400).json({
-        message: "Only PDF files allowed"
+        message: "Only PDF and Image files allowed"
       });
     }
 
     const filename = req.file.originalname;
     const publicId = `${Date.now()}_${filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    const isPDF = req.file.mimetype === "application/pdf";
 
     const result = await new Promise((resolve, reject) => {
 
@@ -442,8 +454,10 @@ exports.uploadPrescription = async (req, res) => {
         {
           folder: "prescriptions",
           public_id: publicId,
-          resource_type: "raw",
-          format: "pdf"
+
+          resource_type: isPDF ? "raw" : "image",
+
+          ...(isPDF && { format: "pdf" })
         },
         (error, result) => {
           if (error) reject(error);
@@ -459,7 +473,9 @@ exports.uploadPrescription = async (req, res) => {
       result.secure_url,
       result.public_id,
       filename,
-      req.body.notes
+      req.body.notes,
+
+      isPDF ? "pdf" : "image"
     );
 
     res.json({ success: true, data });
@@ -468,6 +484,33 @@ exports.uploadPrescription = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message
+    });
+  }
+};
+
+
+const axios = require("axios");
+
+exports.viewPrescription = async (req, res) => {
+  try {
+    const prescription = await Prescription.findById(req.params.id);
+
+    if (!prescription) {
+      return res.status(404).json({ message: "Prescription not found" });
+    }
+
+    const response = await axios.get(prescription.file, {
+      responseType: "stream"
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "inline");
+
+    response.data.pipe(res);
+
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
     });
   }
 };

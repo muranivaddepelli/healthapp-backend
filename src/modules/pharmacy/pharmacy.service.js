@@ -5,7 +5,8 @@ const Medicine = require("../../models/medicine");
 const openfda = require("../../../services/openfda.service");
 const Prescription = require("../../models/prescription");
 const PharmacyCart = require("../../models/pharmacyCart");
-
+const User = require("../../models/user");
+const sendCartEmail = require("../../utils/sendCartEmail");
 
 
 exports.login = async (hospitalName, username, password) => {
@@ -98,11 +99,23 @@ exports.approvePrescription = async (prescriptionId, data) => {
     throw new Error("Already approved");
   }
 
+  if (!data.medicines || !Array.isArray(data.medicines)) {
+    throw new Error("Medicines are required");
+  }
+
   const cartItems = [];
 
   for (let item of data.medicines) {
 
-    const med = await Medicine.findById(item.medicineId);
+    let med = await Medicine.findById(item.medicineId);
+
+    if (!med && item.name) {
+      med = await Medicine.create({
+        name: item.name,
+        strength: item.strength || "",
+        price: item.price || 0
+      });
+    }
 
     if (!med) throw new Error("Medicine not found");
 
@@ -117,6 +130,25 @@ exports.approvePrescription = async (prescriptionId, data) => {
 
   await PharmacyCart.insertMany(cartItems);
 
+
+
+const user = await User.findById(prescription.userId);
+
+const items = [];
+
+for (let item of cartItems) {
+  const med = await Medicine.findById(item.medicineId);
+
+  items.push({
+    name: med
+      ? `${med.name} ${med.dosageStrength || ""}`
+      : "Medicine",
+    quantity: item.quantity,
+    price: item.price
+  });
+}
+
+sendCartEmail(user, items);
   prescription.status = "approved";
   await prescription.save();
 
@@ -135,4 +167,21 @@ exports.rejectPrescription = async (id) => {
   await prescription.save();
 
   return { message: "Prescription rejected" };
+};
+
+exports.searchMedicines = async (pharmacyId, name, strength) => {
+
+  let query = {
+    pharmacyId
+  };
+
+  if (name) {
+    query.name = { $regex: name, $options: "i" };
+  }
+
+  if (strength) {
+    query.dosageStrength = { $regex: strength, $options: "i" };
+  }
+
+  return await Medicine.find(query);
 };

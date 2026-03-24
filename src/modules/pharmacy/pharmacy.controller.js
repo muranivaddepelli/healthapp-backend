@@ -28,8 +28,46 @@ exports.login = async (req, res) => {
 
 
 exports.searchOpenFDA = async (req, res) => {
-  const data = await service.searchOpenFDA(req.query.search);
-  res.json({ success: true, data });
+  try {
+
+    let search = req.query.search;
+
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query required"
+      });
+    }
+
+    search = search.replace(/\d+\s*(mg|ml|g)/gi, "").trim();
+
+
+    const axios = require("axios");
+
+    const response = await axios.get(
+      `https://api.fda.gov/drug/label.json?search=openfda.generic_name:${search}`
+    );
+
+    const results = response.data.results || [];
+
+    const data = results.map(item => ({
+      name: item.openfda?.generic_name?.[0] || "",
+      manufacturer: item.openfda?.manufacturer_name?.[0] || "",
+      dosage: item.dosage_and_administration?.[0] || "",
+      usage: item.indications_and_usage?.[0] || ""
+    }));
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
 };
 
 exports.addMedicine = async (req, res) => {
@@ -109,6 +147,57 @@ exports.rejectPrescription = async (req, res) => {
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+exports.searchMedicines = async (req, res) => {
+  try {
+
+    let search = req.query.search;
+
+    if (!search) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query required"
+      });
+    }
+
+    const regex = /([a-zA-Z\s]+)\s*(\d+\s*(mg|ml|g))?/i;
+    const match = search.match(regex);
+
+    const name = match?.[1]?.trim();
+    const strength = match?.[2]?.replace(/\s+/g, " ").trim();
+
+    let medicines = await service.searchMedicines(req.user.id, name, strength);
+
+    if (medicines.length === 0) {
+
+      const axios = require("axios");
+
+      const cleanName = name;
+
+      const openfdaRes = await axios.get(
+  `http://localhost:5000/api/pharmacy/openfda?search=${cleanName}`
+);
+
+      return res.json({
+        success: true,
+        source: "openfda",
+        data: openfdaRes.data.data
+      });
+    }
+
+    res.json({
+      success: true,
+      data: medicines
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };
 

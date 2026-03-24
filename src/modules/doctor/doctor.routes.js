@@ -23,4 +23,13 @@ router.get("/doctors/:doctorId/slots", controller.getDoctorSlots);
 
 router.get("/appointments", getDoctorAppointments);
 
+
+router.get("/dashboard", controller.getDashboard);
+
+router.post("/events", controller.createEvent);
+
+router.get("/patients/search", controller.searchPatients);
+
+router.get("/calendar", controller.getCalendarData);
+
 module.exports = router;

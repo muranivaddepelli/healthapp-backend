@@ -321,7 +321,7 @@ exports.checkout = async (userId, data) => {
         hospitalId: item.hospitalId,
         date: item.date,
         time: item.time,
-        consultationFee: item.price, // ✅ FIXED
+        consultationFee: item.price,
         modeOfPayment: modeOfPayment || "offline",
         paymentStatus: "pending"
       });
@@ -461,4 +461,23 @@ exports.uploadPrescription = async (userId, file, publicId, filename, notes) => 
     filename,
     notes
   });
+};
+
+
+exports.importFromEMR = async (userId, emrId) => {
+
+  const res = await axios.get(
+    `http://localhost:5000/api/emr/prescriptions/${emrId}`
+  );
+
+  const emrData = res.data.data;
+
+  const prescription = await Prescription.create({
+    userId,
+    file: emrData.fileUrl,
+    type: "emr",
+    status: "pending"
+  });
+
+  return prescription;
 };

@@ -216,7 +216,7 @@ exports.getDoctorSlots = async (req, res) => {
 
 exports.getDoctorAppointments = async (req, res) => {
   try {
-    const doctorId = req.user.id; // from JWT
+    const doctorId = req.user.id; 
 
     const { status, date } = req.query;
 
@@ -240,6 +240,83 @@ exports.getDoctorAppointments = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error"
+    });
+  }
+};
+
+
+exports.getDashboard = async (req, res) => {
+  try {
+
+    const data = await service.getDashboard(req.user.id);
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+exports.createEvent = async (req, res) => {
+  try {
+
+    const data = await service.createEvent(
+      req.user.id,
+      req.body
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+exports.searchPatients = async (req, res) => {
+  try {
+
+    const { search } = req.query;
+
+    const data = await service.searchPatients(search);
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+exports.getCalendarData = async (req, res) => {
+  try {
+
+    const { date } = req.query;
+
+    const data = await service.getCalendarData(
+      req.user.id,
+      date
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
     });
   }
 };
