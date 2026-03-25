@@ -284,18 +284,11 @@ exports.createEvent = async (req, res) => {
 
 exports.searchPatients = async (req, res) => {
   try {
-
-    const { search } = req.query;
-
-    const data = await service.searchPatients(search);
+    const data = await service.searchPatients(req.query.search);
 
     res.json({ success: true, data });
-
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -308,6 +301,85 @@ exports.getCalendarData = async (req, res) => {
 
     const data = await service.getCalendarData(
       req.user.id,
+      date
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getCalendarEvents = async (req, res) => {
+  try {
+
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "startDate and endDate required"
+      });
+    }
+
+    const data = await service.getCalendarEvents(
+      req.user.id,
+      startDate,
+      endDate
+    );
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.getUpcomingEvents = async (req, res) => {
+  try {
+    const data = await service.getUpcomingEvents(req.user.id);
+
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getPatientDetails = async (req, res) => {
+  try {
+    const data = await service.getPatientDetails(req.params.id);
+
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getPatientPrescriptions = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    const data = await service.getPatientPrescriptions(
+      req.params.id,
       date
     );
 

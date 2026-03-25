@@ -20,20 +20,24 @@ const doctorAvailabilitySchema = new mongoose.Schema({
       "Sunday"
     ]
   },
-
-  date: {
-    type: Date
-  },
-
-  startTime: {
-    type: String,
-    required: true
-  },
-
-  endTime: {
-    type: String,
-    required: true
+slots: [
+    {
+      startTime: {
+        type: String,
+        required: true
+      },
+      endTime: {
+        type: String,
+        required: true
+      }
+    }
+  ],
+    isAvailable: {
+    type: Boolean,
+    default: true
   }
+
+  
 
 }, { timestamps: true });
 

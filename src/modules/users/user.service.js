@@ -14,6 +14,7 @@ const PharmacyOrder = require("../../models/pharmacyOrder");
 const Review = require("../../models/review");
 const DiagnosticOrder = require("../../models/diagnosticOrder");
 const Prescription = require("../../models/prescription");
+const DoctorEvent = require("../../models/doctorEvent");
 
 
 
@@ -113,6 +114,7 @@ exports.getDoctorDetails = async (doctorId) => {
     consultationFee: doctor.consultationFee
   };
 };
+
 exports.getDoctorSlots = async (doctorId, date) => {
 
   const selectedDate = new Date(date + "T00:00:00.000Z");
@@ -121,16 +123,11 @@ exports.getDoctorSlots = async (doctorId, date) => {
     weekday: "long"
   });
 
-  console.log("Selected Date:", selectedDate);
-  console.log("Day:", day);
-
   const exception = await DoctorException.findOne({
     doctorId,
     fromDate: { $lte: selectedDate },
     toDate: { $gte: selectedDate }
   });
-
-  console.log("Exception:", exception);
 
   if (exception && exception.isFullDay) {
     return [];
@@ -141,35 +138,55 @@ exports.getDoctorSlots = async (doctorId, date) => {
     day
   });
 
-  console.log("Availability:", availability);
-
   let slots = [];
 
   availability.forEach(a => {
+    (a.slots || []).forEach(slot => {
 
-    let start = new Date(`1970-01-01T${a.startTime}:00`);
-    let end = new Date(`1970-01-01T${a.endTime}:00`);
+      let start = new Date(`1970-01-01T${slot.startTime}:00`);
+      let end = new Date(`1970-01-01T${slot.endTime}:00`);
 
-    while (start < end) {
+      while (start < end) {
+        const time = start.toTimeString().slice(0, 5);
+        slots.push(time);
+        start.setMinutes(start.getMinutes() + 30);
+      }
 
-      const time = start.toTimeString().slice(0, 5);
-      slots.push(time);
-
-      start.setMinutes(start.getMinutes() + 30);
-    }
-
+    });
   });
 
   if (exception && !exception.isFullDay) {
-
     slots = slots.filter(time =>
-      time >= exception.startTime &&
-      time < exception.endTime
+      !(time >= exception.startTime && time < exception.endTime)
     );
   }
 
+  const booked = await Appointment.find({
+    doctorId,
+    date: selectedDate,
+    status: { $ne: "cancelled" }
+  });
+
+  const bookedTimes = booked.map(b => b.time);
+
+  slots = slots.filter(time => !bookedTimes.includes(time));
+
+  const events = await DoctorEvent.find({
+    doctorId,
+    date: selectedDate
+  });
+
+  events.forEach(e => {
+    slots = slots.filter(time =>
+      !(time >= e.startTime && time < e.endTime)
+    );
+  });
+  slots = [...new Set(slots)];
+  slots.sort();
+
   return slots;
 };
+
 exports.addToCart = async (userId, data) => {
 
   const { type } = data;

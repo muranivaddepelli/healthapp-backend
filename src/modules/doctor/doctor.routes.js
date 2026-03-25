@@ -32,4 +32,12 @@ router.get("/patients/search", controller.searchPatients);
 
 router.get("/calendar", controller.getCalendarData);
 
+router.get("/calendar/events", controller.getCalendarEvents);
+
+router.get("/upcoming",controller.getUpcomingEvents);
+
+router.get("/patient/:id", controller.getPatientDetails);
+
+router.get("/patient/:id/prescriptions", controller.getPatientPrescriptions);
+
 module.exports = router;
