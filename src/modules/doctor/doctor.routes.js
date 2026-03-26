@@ -39,5 +39,13 @@ router.get("/upcoming",controller.getUpcomingEvents);
 router.get("/patient/:id", controller.getPatientDetails);
 
 router.get("/patient/:id/prescriptions", controller.getPatientPrescriptions);
+router.post("/prescription", controller.createPrescription);
+router.get("/patient/:id/header", controller.getPatientHeader);
+
+router.get("/patient/:id/current-rx", controller.getCurrentRx);
+router.get("/patient/:id/files", controller.getPreviousFiles);
+router.get("/patient/:id/current-rx", controller.getCurrentRx);
+
+
 
 module.exports = router;

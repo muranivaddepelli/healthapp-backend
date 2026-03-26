@@ -392,3 +392,96 @@ exports.getPatientPrescriptions = async (req, res) => {
     });
   }
 };
+
+
+
+exports.createPrescription = async (req, res) => {
+  try {
+
+    const data = await service.createPrescription(
+      req.user.id,
+      req.body
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Prescription created successfully",
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.getPatientHeader = async (req, res) => {
+  try {
+
+    const data = await service.getPatientHeader(
+      req.user.id,
+      req.params.id
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getCurrentRx = async (req, res) => {
+  try {
+
+    const data = await service.getCurrentRx(
+      req.user.id,
+      req.params.id
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+exports.getPreviousFiles = async (req, res) => {
+  try {
+
+    const data = await service.getPreviousFiles(req.params.id);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getComplaints = async (req, res) => {
+  try {
+
+    const data = await service.getComplaints(
+      req.user.id,
+      req.params.id
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

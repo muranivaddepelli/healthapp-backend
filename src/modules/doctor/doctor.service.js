@@ -6,6 +6,8 @@ const User = require("../../models/user");
 const DoctorEvent = require("../../models/doctorEvent");
 const DoctorAvailability = require("../../models/doctorAvailability");
 const Prescription = require("../../models/prescription");
+const DoctorPrescription = require("../../models/DoctorPrescription");
+
 
 
 const addMinutes = (time, mins = 30) => {
@@ -519,6 +521,115 @@ exports.getPatientPrescriptions = async (userId, date) => {
     prescriptionId: p._id,
     prescribedBy: `${p.doctorId?.firstName || ""} ${p.doctorId?.lastName || ""}`
   }));
+};
+
+
+
+
+exports.createPrescription = async (doctorId, data) => {
+
+  const user = await User.findById(data.userId);
+
+  if (!user) {
+    throw new Error("Patient not found");
+  }
+
+  const count = await DoctorPrescription.countDocuments({
+    doctorId,
+    userId: data.userId
+  });
+
+  const visitNumber = count + 1;
+
+  const prescriptionId = `PID-${user.phone}-${visitNumber}`;
+
+  return DoctorPrescription.create({
+    doctorId,
+    userId: data.userId,
+    diagnosis: data.diagnosis,
+    vitals: data.vitals,
+    medicalHistory: data.medicalHistory,
+    diagnostics: data.diagnostics,
+    medicines: data.medicines,
+    lifestyle: data.lifestyle,
+    followUp: data.followUp,
+    referral: data.referral,
+    complaints: data.complaints,
+    visitNumber,
+    prescriptionId
+  });
+};
+
+
+
+exports.getPatientHeader = async (doctorId, userId) => {
+
+  const user = await User.findById(userId);
+
+  if (!user) throw new Error("Patient not found");
+
+  const visits = await Appointment.countDocuments({
+    doctorId,
+    userId,
+    status: { $ne: "cancelled" }
+  });
+
+  const lastVisit = await Appointment.findOne({
+    doctorId,
+    userId,
+    status: { $ne: "cancelled" }
+  }).sort({ date: -1 });
+
+  return {
+    name: `${user.firstName} ${user.lastName}`,
+    age: user.age,
+    gender: user.gender,
+    patientId: `PID-${user.phone}`,
+    visits,
+    lastVisit: lastVisit?.date || null,
+    prescriptionId: `PID-${user.phone}-${visits + 1}`
+  };
+};
+
+exports.getCurrentRx = async (req, res) => {
+  try {
+
+    const data = await service.getCurrentRx(
+      req.user.id,
+      req.params.id
+    );
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+exports.getPreviousFiles = async (userId) => {
+
+  const files = await Prescription.find({ userId })
+    .select("file filename createdAt")
+    .sort({ createdAt: -1 });
+
+  return files.map(f => ({
+    id: f._id,
+    name: f.filename,
+    url: f.file,
+    date: f.createdAt
+  }));
+};
+
+exports.getComplaints = async (doctorId, userId) => {
+
+  const latest = await DoctorPrescription.findOne({
+    doctorId,
+    userId
+  }).sort({ createdAt: -1 });
+
+  return latest?.diagnosis || "";
 };
 
 
