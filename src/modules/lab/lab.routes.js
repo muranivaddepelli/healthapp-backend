@@ -13,7 +13,12 @@ router.use(authMiddleware, roleMiddleware("lab"));
 
 
 router.post("/logout", authMiddleware,roleMiddleware("lab"), controller.logout);
-router.post("/tests",upload.single("image"),  controller.addTest);
+router.post("/tests",upload.single("image"),  controller.createTest);
 router.post("/slots", controller.addSlots);
 
+
+router.get("/dashboard-stats", controller.getDashboardStats);
+router.get("/orders", controller.getOrders);
+router.put("/update-status", controller.updateStatus);
+router.get("/orders/:id", controller.getOrderById);
 module.exports = router;

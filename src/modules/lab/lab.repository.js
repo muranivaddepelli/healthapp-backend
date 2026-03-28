@@ -1,5 +1,7 @@
 const Lab = require("../../models/lab");
 const Hospital = require("../../models/hospital");
+const DiagnosticTest = require("../../models/diagnosticTest");
+const LabOrder = require("../../models/LabOrder");
 
 exports.findHospitalByName = (hospitalName) => {
   return Hospital.findOne({ hospitalName });
@@ -10,4 +12,51 @@ exports.findLab = (hospitalId, username) => {
     hospitalId,
     username
   });
+};
+
+exports.createTest = (data) => {
+  return DiagnosticTest.create(data);
+};
+
+exports.getOrders = (filter) => {
+  return LabOrder.find(filter).sort({ createdAt: -1 });
+};
+
+exports.updateStatus = (orderId, status) => {
+  return LabOrder.findByIdAndUpdate(
+    orderId,
+    { status },
+    { new: true }
+  );
+};
+
+
+exports.getStatsByDate = async (date) => {
+  const start = new Date(date.setHours(0, 0, 0, 0));
+  const end = new Date(date.setHours(23, 59, 59, 999));
+
+  const total = await LabOrder.countDocuments({
+    createdAt: { $gte: start, $lte: end }
+  });
+
+  const pending = await LabOrder.countDocuments({
+    status: "ordered",
+    createdAt: { $gte: start, $lte: end }
+  });
+
+  const processing = await LabOrder.countDocuments({
+    status: "processing",
+    createdAt: { $gte: start, $lte: end }
+  });
+
+  const completed = await LabOrder.countDocuments({
+    status: "completed",
+    createdAt: { $gte: start, $lte: end }
+  });
+
+  return { total, pending, processing, completed };
+};
+
+exports.getOrderById = (id) => {
+  return LabOrder.findById(id);
 };
