@@ -3,9 +3,20 @@ const mongoose = require("mongoose");
 const LabOrderSchema = new mongoose.Schema(
   {
     patientName: String,
+    age: Number,
+    dob: Date,
+    patientId: String,
+    gender: {
+  type: String,
+  enum: ["Male", "Female", "Other"]
+},
+
     testName: String,
+
     orderId: String,
-    sampleId: String,
+    sampleBarcode: String,
+
+    scheduledAt: Date,
 
     status: {
       type: String,
@@ -19,7 +30,15 @@ const LabOrderSchema = new mongoose.Schema(
       default: "ordered"
     },
 
-    reportUrl: String
+    sampleCollectedAt: Date,
+
+    reportUrl: String,
+    reportType: {
+      type: String,
+      enum: ["pdf", "image"]
+    },
+    reportGeneratedAt: Date,
+    completedAt: Date
   },
   { timestamps: true }
 );

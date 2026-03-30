@@ -22,12 +22,10 @@ exports.getOrders = (filter) => {
   return LabOrder.find(filter).sort({ createdAt: -1 });
 };
 
-exports.updateStatus = (orderId, status) => {
-  return LabOrder.findByIdAndUpdate(
-    orderId,
-    { status },
-    { new: true }
-  );
+exports.updateOrder = (orderId, updateData) => {
+  return LabOrder.findByIdAndUpdate(orderId, updateData, {
+    new: true
+  });
 };
 
 
@@ -59,4 +57,86 @@ exports.getStatsByDate = async (date) => {
 
 exports.getOrderById = (id) => {
   return LabOrder.findById(id);
+};
+
+
+exports.getPatients = async (search) => {
+  let matchStage = { $match: {} };
+
+  if (search) {
+    const trimmed = search.trim();
+
+    matchStage = {
+      $match: {
+        $or: [
+          { patientName: { $regex: trimmed, $options: "i" } },
+
+          { patientId: { $regex: trimmed, $options: "i" } }
+        ]
+      }
+    };
+  }
+
+  return LabOrder.aggregate([
+    matchStage,
+
+    {
+      $group: {
+        _id: "$patientId",
+
+        patientName: { $first: "$patientName" },
+        age: { $first: "$age" },
+        gender: { $first: "$gender" },
+
+        lastTestDate: { $max: "$createdAt" },
+
+        activeTestsCount: {
+          $sum: {
+            $cond: [
+              { $ne: ["$status", "completed"] },
+              1,
+              0
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      $project: {
+        _id: 0,
+        patientId: "$_id",
+        patientName: 1,
+        age: 1,
+        gender: 1,
+        lastTestDate: 1,
+        activeTestsCount: 1
+      }
+    },
+
+    {
+      $sort: { lastTestDate: -1 }
+    }
+  ]);
+};
+
+
+
+
+exports.getPatientReports = async (patientId, type) => {
+
+  let filter = { patientId };
+
+  filter.status = "completed";
+
+  if (type === "pdf") {
+    filter.reportType = "pdf";
+  }
+
+  if (type === "image") {
+    filter.reportType = "image";
+  }
+
+  return LabOrder.find(filter)
+    .sort({ reportGeneratedAt: -1 });
 };

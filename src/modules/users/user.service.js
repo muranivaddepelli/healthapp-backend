@@ -15,7 +15,8 @@ const Review = require("../../models/review");
 const DiagnosticOrder = require("../../models/diagnosticOrder");
 const Prescription = require("../../models/prescription");
 const DoctorEvent = require("../../models/doctorEvent");
-
+const LabOrder = require("../../models/LabOrder");
+const {generatePatientId} = require("../../utils/generatePatientId");
 
 
 
@@ -222,32 +223,68 @@ exports.addToCart = async (userId, data) => {
     });
   }
 
-  if (type === "diagnostic") {
+if (item.type === "diagnostic") {
 
-    const { testId, slotId, date, time, mode } = data;
-
-    const test = await DiagnosticTest.findById(testId);
-    if (!test) throw new Error("Test not found");
-
-    const slot = await TestSlot.findById(slotId);
-    if (!slot || slot.isBooked) {
-      throw new Error("Slot not available");
-    }
-
-    return Cart.create({
-      userId,
-      type: "diagnostic",
-      testId,
-      slotId,
-      date,
-      time,
-      mode,
-      price: test.price
-    });
+  const slot = await TestSlot.findById(item.slotId);
+  if (!slot || slot.isBooked) {
+    throw new Error("Slot not available");
   }
 
+  const userData = await repo.getProfile(userId);
+
+  const test = await DiagnosticTest.findById(item.testId);
+
+  const existing = await LabOrder.findOne({
+    patientName: userData.name,
+    dob: userData.dob
+  });
+
+  let patientId;
+
+  if (existing) {
+    patientId = existing.patientId;
+  } else {
+    patientId = generatePatientId();
+  }
+
+  const labOrder = await LabOrder.create({
+    patientName: userData.name,
+    age: userData.age,
+    gender: userData.gender,
+    dob: userData.dob,
+
+    patientId,
+
+    testName: test.name,
+    orderId: "ORD-" + Date.now(),
+
+    scheduledAt: item.date,
+    status: "ordered"
+  });
+
+  const order = await DiagnosticOrder.create({
+    userId,
+    testId: item.testId,
+    slotId: item.slotId,
+    date: item.date,
+    time: item.time,
+    mode: item.mode
+  });
+
+  slot.isBooked = true;
+  await slot.save();
+
+  results.push({
+    type: "diagnostic",
+    data: order,
+    labOrderId: labOrder._id
+  });
+}
   throw new Error("Invalid cart type");
 };
+
+
+
 exports.getCart = async (userId) => {
   const carts = await Cart.find({ userId, status: "active" })
     .populate("doctorId", "username specialization profileImage")
@@ -257,7 +294,6 @@ exports.getCart = async (userId) => {
 
   return carts.map(item => {
 
-    //CONSULTATION
     if (item.type === "consultation") {
       return {
         cartId: item._id,
@@ -273,7 +309,6 @@ exports.getCart = async (userId) => {
       };
     }
 
-    //DIAGNOSTIC
     if (item.type === "diagnostic") {
       return {
         cartId: item._id,
@@ -358,14 +393,34 @@ exports.checkout = async (userId, data) => {
         throw new Error("Slot not available");
       }
 
-      const order = await DiagnosticOrder.create({
-        userId,
-        testId: item.testId,
-        slotId: item.slotId,
-        date: item.date,
-        time: item.time,
-        mode: item.mode
-      });
+
+const existing = await LabOrder.findOne({
+  patientName: user.name,   
+  dob: user.dob
+});
+
+let patientId;
+
+if (existing) {
+  patientId = existing.patientId;
+} else {
+  patientId = generatePatientId();
+}
+
+const labOrder = await LabOrder.create({
+  patientName: user.name,
+  age: user.age,
+  gender: user.gender,
+  dob: user.dob,
+
+  patientId,   
+
+  testName: test.name,
+  orderId: "ORD-" + Date.now(),
+
+  scheduledAt: item.date,
+  status: "ordered"
+});
 
       slot.isBooked = true;
       await slot.save();
@@ -409,7 +464,7 @@ exports.getPharmacyCart = async (userId) => {
   return PharmacyCart.find({ userId, status: "active" })
     .populate("medicineId");
 };
-exports.checkout = async (userId, paymentMethod) => {
+exports.checkoutPharmacy = async (userId, paymentMethod) => {
 
   const cartItems = await PharmacyCart.find({
     userId,

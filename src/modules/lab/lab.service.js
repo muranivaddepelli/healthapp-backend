@@ -70,17 +70,59 @@ exports.getOrders = async (status, search) => {
   return await repo.getOrders(filter);
 };
 
-exports.updateStatus = async (orderId, status) => {
-  const updateData = { status };
 
-  if (status === "sample_collected") {
-    updateData.sampleId = "SMP-" + Date.now();
+const validTransitions = {
+  ordered: "sample_collected",
+  sample_collected: "processing",
+  processing: "verified"
+};
+
+exports.updateStatus = async (orderId, nextStatus) => {
+  if (!orderId || !nextStatus) {
+    throw new Error("orderId and status required");
+  }
+
+  const order = await repo.getOrderById(orderId);
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  if (validTransitions[order.status] !== nextStatus) {
+    throw new Error("Invalid status transition");
+  }
+
+  const updateData = { status: nextStatus };
+
+  if (nextStatus === "sample_collected") {
+    updateData.sampleBarcode = "BC-" + Date.now();
     updateData.sampleCollectedAt = new Date();
   }
 
-  return await repo.updateStatus(orderId, updateData);
+  return await repo.updateOrder(orderId, updateData);
 };
 
+exports.uploadReport = async (orderId, filePath, reportType) => {
+  const order = await repo.getOrderById(orderId);
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  if (order.status !== "verified") {
+    throw new Error("Report can be uploaded only after verification");
+  }
+
+  const updateData = {
+    reportUrl: filePath,
+    reportType,
+    reportGeneratedAt: new Date(),
+    completedAt: new Date(),
+    status: "completed"
+  };
+
+  return await repo.updateOrder(orderId, updateData);
+};
 const calculateChange = (today, yesterday) => {
   if (yesterday === 0) return "0%";
 
@@ -127,4 +169,8 @@ exports.getOrderById = async (id) => {
   }
 
   return await repo.getOrderById(id);
+};
+
+exports.getPatients = async (search) => {
+  return await repo.getPatients(search);
 };

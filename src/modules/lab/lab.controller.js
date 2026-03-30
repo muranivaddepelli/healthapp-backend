@@ -2,6 +2,8 @@ const service = require("./lab.service");
 const { logout } = require("../../utils/logout");
 const DiagnosticTest = require("../../models/diagnosticTest");
 const TestSlot = require("../../models/testSlot");
+const path = require("path");
+const fs = require("fs");
 
 exports.login = async (req, res) => {
 
@@ -84,15 +86,108 @@ exports.getOrders = async (req, res) => {
   }
 };
 
+
 exports.updateStatus = async (req, res) => {
   try {
     const { orderId, status } = req.body;
 
     const updated = await service.updateStatus(orderId, status);
 
-    res.json({ success: true, data: updated });
+    res.json({
+      success: true,
+      message: "Status updated",
+      data: updated
+    });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.uploadReport = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File required" });
+    }
+
+    const fileName = Date.now() + "-" + req.file.originalname;
+
+    const uploadPath = path.join(
+      __dirname,
+      "../../../uploads/reports",
+      fileName
+    );
+
+    fs.writeFileSync(uploadPath, req.file.buffer);
+
+    const reportType = req.file.mimetype.includes("pdf")
+      ? "pdf"
+      : "image";
+
+    const updated = await service.uploadReport(
+      orderId,
+      `uploads/reports/${fileName}`, 
+      reportType
+    );
+
+    res.json({
+      success: true,
+      message: "Report uploaded & completed",
+      data: updated
+    });
+
+  } catch (err) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        message: "File too large (max 10MB)"
+      });
+    }
+
+    res.status(400).json({
+      message: err.message
+    });
+  }
+};
+
+exports.previewReport = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await service.getOrderById(orderId);
+
+    if (!order || !order.reportUrl) {
+      return res.status(404).json({
+        message: "Report not found"
+      });
+    }
+
+    const filePath = path.resolve(order.reportUrl);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        message: "File not found"
+      });
+    }
+
+    if (order.reportType === "pdf") {
+      res.setHeader("Content-Type", "application/pdf");
+    } else {
+      res.setHeader("Content-Type", "image/jpeg");
+    }
+
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message
+    });
   }
 };
 
@@ -116,6 +211,48 @@ exports.getOrderById = async (req, res) => {
     res.json({ success: true, data: order });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+exports.getPatients = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    const patients = await service.getPatients(search);
+
+    res.json({
+      success: true,
+      count: patients.length,
+      data: patients
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getPatientReports = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { type } = req.query; 
+    const data = await service.getPatientReports(patientId, type);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
   }
 };
 
