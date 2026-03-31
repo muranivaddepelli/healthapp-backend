@@ -27,4 +27,7 @@ router.post("/upload-report",upload.single("file"),controller.uploadReport);
 router.get("/report/:orderId", controller.previewReport);
 router.get("/patients", controller.getPatients);
 router.get("/patients/:patientId/reports", controller.getPatientReports);
+router.put("/update-report/:orderId",upload.single("report"),controller.updateReport);
+router.get("/report/view/:orderId", controller.viewReport);
+router.get("/report/download/:orderId", controller.downloadReport);
 module.exports = router;

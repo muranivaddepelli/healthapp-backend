@@ -174,3 +174,20 @@ exports.getOrderById = async (id) => {
 exports.getPatients = async (search) => {
   return await repo.getPatients(search);
 };
+
+exports.getPatientReports = async (patientId) => {
+  if (!patientId) throw new Error("patientId required");
+
+  return await repo.getPatientReports(patientId);
+};
+
+exports.updateReport = async (orderId, filePath, mimetype) => {
+
+  const reportType = mimetype.includes("pdf") ? "pdf" : "image";
+
+  return await repo.updateOrder(orderId, {
+    reportUrl: filePath,
+    reportType,
+    reportGeneratedAt: new Date()
+  });
+};

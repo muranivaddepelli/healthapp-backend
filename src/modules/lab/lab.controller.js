@@ -240,8 +240,8 @@ exports.getPatients = async (req, res) => {
 exports.getPatientReports = async (req, res) => {
   try {
     const { patientId } = req.params;
-    const { type } = req.query; 
-    const data = await service.getPatientReports(patientId, type);
+
+    const data = await service.getPatientReports(patientId);
 
     res.json({
       success: true,
@@ -253,6 +253,67 @@ exports.getPatientReports = async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+};
+
+exports.updateReport = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File required" });
+    }
+
+    const filePath = `uploads/reports/${Date.now()}-${req.file.originalname}`;
+
+    const updated = await service.updateReport(
+      orderId,
+      filePath,
+      req.file.mimetype
+    );
+
+    res.json({
+      success: true,
+      message: "Report updated",
+      data: updated
+    });
+
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+exports.viewReport = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await service.getOrderById(orderId);
+
+    if (!order || !order.reportUrl) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    res.sendFile(path.resolve(order.reportUrl));
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.downloadReport = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await service.getOrderById(orderId);
+
+    if (!order || !order.reportUrl) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    res.download(path.resolve(order.reportUrl));
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 

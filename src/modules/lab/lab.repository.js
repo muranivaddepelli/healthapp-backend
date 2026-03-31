@@ -123,20 +123,18 @@ exports.getPatients = async (search) => {
 
 
 
-exports.getPatientReports = async (patientId, type) => {
+exports.getPatientReports = async (patientId) => {
 
-  let filter = { patientId };
+  const reports = await LabOrder.find({
+    patientId,
+    status: "completed"
+  })
+  .select("testName reportUrl reportType reportGeneratedAt orderId")
+  .sort({ reportGeneratedAt: -1 });
 
-  filter.status = "completed";
-
-  if (type === "pdf") {
-    filter.reportType = "pdf";
-  }
-
-  if (type === "image") {
-    filter.reportType = "image";
-  }
-
-  return LabOrder.find(filter)
-    .sort({ reportGeneratedAt: -1 });
+  return {
+    pdfReports: reports.filter(r => r.reportType === "pdf"),
+    imageReports: reports.filter(r => r.reportType === "image"),
+    bills: [] 
+  };
 };
