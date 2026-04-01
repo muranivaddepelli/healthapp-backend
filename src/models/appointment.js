@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const appointmentSchema = new mongoose.Schema({
 
   userId: {
@@ -20,6 +21,14 @@ const appointmentSchema = new mongoose.Schema({
   date: Date,
   time: String,
 
+  tokenNumber: String,
+
+  visitType: {
+    type: String,
+    enum: ["consultation", "follow-up"],
+    default: "consultation"
+  },
+
   consultationFee: Number,
 
   modeOfPayment: {
@@ -29,10 +38,19 @@ const appointmentSchema = new mongoose.Schema({
   },
 
   status: {
-  type: String,
-  enum: ["booked", "checked-in", "in-progress", "completed", "cancelled"],
-  default: "booked"
-},
+    type: String,
+    enum: [
+      "waiting",
+      "confirmed",
+      "in-progress",
+      "completed",
+      "cancelled",
+      "no-show"
+    ],
+    default: "waiting"
+  },
+
+  checkInTime: Date,
 
   paymentStatus: {
     type: String,
@@ -41,5 +59,3 @@ const appointmentSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
-
-module.exports = mongoose.model("Appointment", appointmentSchema);

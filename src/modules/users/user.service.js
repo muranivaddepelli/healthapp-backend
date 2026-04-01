@@ -367,18 +367,30 @@ exports.checkout = async (userId, data) => {
         throw new Error("Slot already booked");
       }
 
-      const appointment = await Appointment.create({
-        userId,
-        doctorId: item.doctorId,
-        hospitalId: item.hospitalId,
-        date: item.date,
-        time: item.time,
-        consultationFee: item.price,
-        modeOfPayment: modeOfPayment || "offline",
-        paymentStatus: "pending"
-      });
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
 
-      results.push({
+const todayEnd = new Date();
+todayEnd.setHours(23, 59, 59, 999);
+
+const count = await Appointment.countDocuments({
+  date: { $gte: todayStart, $lte: todayEnd }
+});
+
+const tokenNumber = `T-${100 + count + 1}`;
+
+const appointment = await Appointment.create({
+  userId,
+  doctorId: item.doctorId,
+  hospitalId: item.hospitalId,
+  date: item.date,
+  time: item.time,
+  consultationFee: item.price,
+  modeOfPayment: modeOfPayment || "offline",
+  paymentStatus: "pending",
+  tokenNumber,
+  status: "waiting"
+});      results.push({
         type: "consultation",
         data: appointment
       });
