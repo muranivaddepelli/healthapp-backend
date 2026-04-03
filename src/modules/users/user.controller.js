@@ -4,6 +4,7 @@ const Appointment=require("../../models/appointment");
 const DiagnosticTest = require("../../models/diagnosticTest");
 const TestSlot = require("../../models/testSlot");
 const Prescription = require("../../models/prescription");
+const User = require("../../models/user");
 
 exports.getProfile = async (req, res) => {
 
@@ -489,7 +490,6 @@ exports.uploadPrescription = async (req, res) => {
 };
 
 
-const axios = require("axios");
 
 exports.viewPrescription = async (req, res) => {
   try {
@@ -512,5 +512,30 @@ exports.viewPrescription = async (req, res) => {
     return res.status(500).json({
       message: error.message
     });
+  }
+};
+
+
+exports.searchPatient = async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+
+    const patients = await User.find({
+      $or: [
+        { name: { $regex: query, $options: "i" } },   
+        { phone: { $regex: query, $options: "i" } }   
+      ]
+    })
+      .select("name phone age gender dob")
+      .limit(10); 
+
+    res.json(patients);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

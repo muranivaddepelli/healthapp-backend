@@ -187,17 +187,28 @@ exports.deleteException = async (req, res) => {
 
 
 exports.getDoctorSlots = async (req, res) => {
-
   try {
 
     const { doctorId } = req.params;
     const { date } = req.query;
 
-    const slots = await service.getDoctorSlots(doctorId, date);
+    if (!doctorId || !date) {
+      return res.status(400).json({
+        success: false,
+        message: "doctorId and date are required"
+      });
+    }
+
+    const selectedDate = new Date(date);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const slots = await service.getDoctorSlots(doctorId, selectedDate);
 
     res.json({
       success: true,
-      data: slots
+      data: {
+        slots
+      }
     });
 
   } catch (err) {
@@ -208,9 +219,7 @@ exports.getDoctorSlots = async (req, res) => {
     });
 
   }
-
 };
-
 
 
 

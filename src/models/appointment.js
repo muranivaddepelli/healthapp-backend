@@ -56,6 +56,9 @@ const appointmentSchema = new mongoose.Schema({
     type: String,
     enum: ["pending", "paid"],
     default: "pending"
-  }
+  },
+  checkedInAt: Date,
+  inProgressAt: Date,
+  completedAt: Date
 
 }, { timestamps: true });

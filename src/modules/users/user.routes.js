@@ -66,5 +66,8 @@ router.post("/review", authMiddleware, controller.addReview);
 router.post("/pharmacy/prescription", authMiddleware,upload.single("file"),controller.uploadPrescription);
 
 router.get("/prescription/:id/view", controller.viewPrescription);
+router.get("/patients/search", controller.searchPatient);
+
+
 
 module.exports = router;
