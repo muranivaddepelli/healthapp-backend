@@ -50,17 +50,24 @@ exports.createTest = async (req, res) => {
 
 exports.addSlots = async (req, res) => {
   try {
-    const { testId, date, slots } = req.body;
+    const { testId, date, slots, mode } = req.body;
+
     if (!Array.isArray(slots) || slots.length === 0) {
       return res.status(400).json({ message: "Slots required" });
     }
-    const data = slots.map(time => ({
+
+    if (!mode || !["home", "walk-in"].includes(mode)) {
+      return res.status(400).json({ message: "Invalid mode" });
+    }
+
+    const slotData = slots.map(time => ({
       testId,
       date,
-      time
+      time,
+      mode
     }));
 
-    const created = await TestSlot.insertMany(data);
+    const created = await TestSlot.insertMany(slotData);
 
     res.json({
       success: true,
@@ -71,8 +78,6 @@ exports.addSlots = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-
 
 exports.getOrders = async (req, res) => {
   try {

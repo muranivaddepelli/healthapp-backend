@@ -52,12 +52,15 @@ router.get("/diagnostic/tests",authMiddleware,controller.getTests);
 
 router.get("/diagnostic/slots",authMiddleware,controller.getSlots);
 
+router.get("/slots-by-test", controller.getSlotsByTest);
+
+
 
 router.get("/medicines", authMiddleware, controller.getMedicines);
 
 router.post("/pharmacy/cart",authMiddleware, controller.addPharmacyCart);
 router.get("/pharmacy/cart", authMiddleware, controller.getPharmacyCart);
-router.post("/pharmacy/checkout", authMiddleware, controller.checkout);
+router.post("/pharmacy/checkout", authMiddleware, controller.checkoutPharmacy);
 
 router.post("/review", authMiddleware, controller.addReview);
 

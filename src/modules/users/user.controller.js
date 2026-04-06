@@ -165,11 +165,16 @@ exports.getDoctors = async (req, res) => {
 
   try {
 
-    const { specialization, location } = req.query;
+    const { specialization, location,type } = req.query;
+
+    if (location && !Array.isArray(location)) {
+  location = [location];
+}
 
     const doctors = await service.getDoctors(
       specialization,
-      location
+      location,
+      type
     );
 
     res.json({
@@ -339,8 +344,7 @@ address: a.hospitalId?.address,
 
 exports.getTests = async (req, res) => {
   try {
-
-      const { type } = req.query;
+    const { type } = req.query;
 
     let filter = {};
 
@@ -354,10 +358,37 @@ exports.getTests = async (req, res) => {
 
     const tests = await DiagnosticTest.find(filter);
 
-    res.json({
-      success: true,
-      data: tests
+const enrichedTests = await Promise.all(
+  tests.map(async (test) => {
+
+    const slotCount = await TestSlot.countDocuments({
+      testId: test._id,
+      isBooked: false
     });
+
+    const nextSlot = await TestSlot.findOne({
+      testId: test._id,
+      isBooked: false
+    }).sort({ date: 1, time: 1 });
+
+    return {
+      ...test.toObject(),
+      availableSlots: slotCount,
+
+      nextAvailableSlot: nextSlot
+        ? {
+            date: nextSlot.date,
+            time: nextSlot.time
+          }
+        : null
+    };
+  })
+);
+
+res.json({
+  success: true,
+  data: enrichedTests
+});
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -365,17 +396,16 @@ exports.getTests = async (req, res) => {
     });
   }
 };
-
 exports.getSlots = async (req, res) => {
   try {
-    const { testId, date } = req.query;
+const { testId, date, mode } = req.query;
 
-    const slots = await TestSlot.find({
-      testId,
-      date,
-      isBooked: false
-    });
-
+TestSlot.find({
+  testId,
+  date,
+  mode,
+  isBooked: false
+});
     res.json({
       success: true,
       data: slots
@@ -386,6 +416,39 @@ exports.getSlots = async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+};
+
+
+exports.getSlotsByTest = async (req, res) => {
+  try {
+    const { testId, mode } = req.query;
+
+    const slots = await TestSlot.find({
+      testId,
+      mode,
+      isBooked: false
+    });
+
+    const grouped = {};
+
+    slots.forEach(slot => {
+      const date = slot.date.toISOString().split("T")[0];
+
+      if (!grouped[date]) grouped[date] = [];
+
+      grouped[date].push(slot.time);
+    });
+
+    const result = Object.keys(grouped).map(date => ({
+      date,
+      slots: grouped[date]
+    }));
+
+    res.json({ success: true, data: result });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -406,12 +469,16 @@ exports.getPharmacyCart = async (req, res) => {
   res.json({ success: true, data });
 };
 
-exports.checkout = async (req, res) => {
-  const data = await service.checkout(
-    req.user.id,
-    req.body.paymentMethod
-  );
-  res.json({ success: true, data });
+exports.checkoutPharmacy = async (req, res) => {
+  try {
+    const data = await service.checkoutPharmacy(
+      req.user.id,
+      req.body.paymentMethod
+    );
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.addReview = async (req, res) => {

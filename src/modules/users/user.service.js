@@ -16,7 +16,8 @@ const DiagnosticOrder = require("../../models/diagnosticOrder");
 const Prescription = require("../../models/prescription");
 const DoctorEvent = require("../../models/doctorEvent");
 const LabOrder = require("../../models/LabOrder");
-const {generatePatientId} = require("../../utils/generatePatientId");
+const User = require("../../models/user");
+const { generatePatientId } = require("../../utils/generatePatientId");
 
 
 
@@ -61,7 +62,7 @@ exports.getNearbyHospitals = async (addressId) => {
   }));
 
 };
-exports.getDoctors = async (specialization, location) => {
+exports.getDoctors = async (specialization, location, type) => {
 
   const query = {};
 
@@ -69,27 +70,36 @@ exports.getDoctors = async (specialization, location) => {
     query.specialization = specialization;
   }
 
-  if (location) {
-    query.clinicLocation = location;
+  if (location && type === "clinic") {
+    query.clinicLocation = { $in: location };
   }
 
-const doctors = await Doctor.find(query)
-  .select("-password -__v -createdAt -updatedAt")
-  .populate("hospitalId", "hospitalName address");
+  if (location && type === "home") {
+    query.availabilityLocation = { $in: location };
+  }
 
-return doctors.map(d => ({
-  doctorId: d._id,
-  doctorName: d.username,
-  specialization: d.specialization,
-  experience: d.experience,
-  education: d.education,
-  profileImage: d.profileImage,
-  clinicLocation: d.clinicLocation,
-  hospitalName: d.hospitalId?.hospitalName,
-  hospitalAddress: d.hospitalId?.address,
-  servicesOffered: d.servicesOffered
-}));
+  const doctors = await Doctor.find(query)
+    .select("-password -__v -createdAt -updatedAt")
+    .populate("hospitalId", "hospitalName address");
+
+  return doctors.map(d => ({
+    doctorId: d._id,
+    doctorName: d.username,
+    specialization: d.specialization,
+    experience: d.experience,
+    education: d.education,
+    profileImage: d.profileImage,
+
+    location: type === "home"
+      ? d.availabilityLocation
+      : d.clinicLocation,
+
+    hospitalName: d.hospitalId?.hospitalName,
+    hospitalAddress: d.hospitalId?.address,
+    servicesOffered: d.servicesOffered
+  }));
 };
+
 exports.getDoctorDetails = async (doctorId) => {
 
   const doctor = await Doctor.findById(doctorId)
@@ -223,16 +233,31 @@ exports.addToCart = async (userId, data) => {
     });
   }
 
-if (item.type === "diagnostic") {
+if (type === "diagnostic") {
 
-  const slot = await TestSlot.findById(item.slotId);
+  const { testId, slotId, date, time, mode } = data;
+
+  if (!mode || !["home", "walk-in"].includes(mode)) {
+    throw new Error("Invalid or missing mode");
+  }
+
+  const slot = await TestSlot.findById(slotId);
+
   if (!slot || slot.isBooked) {
     throw new Error("Slot not available");
   }
 
+  if (slot.mode !== mode) {
+    throw new Error("Selected slot does not match mode");
+  }
+
   const userData = await repo.getProfile(userId);
 
-  const test = await DiagnosticTest.findById(item.testId);
+  const test = await DiagnosticTest.findById(testId);
+
+  if (!test) {
+    throw new Error("Test not found");
+  }
 
   const existing = await LabOrder.findOne({
     patientName: userData.name,
@@ -252,33 +277,30 @@ if (item.type === "diagnostic") {
     age: userData.age,
     gender: userData.gender,
     dob: userData.dob,
-
     patientId,
-
     testName: test.name,
     orderId: "ORD-" + Date.now(),
-
-    scheduledAt: item.date,
+    scheduledAt: date,
     status: "ordered"
   });
 
   const order = await DiagnosticOrder.create({
     userId,
-    testId: item.testId,
-    slotId: item.slotId,
-    date: item.date,
-    time: item.time,
-    mode: item.mode
+    testId,
+    slotId,
+    date,
+    time,
+    mode
   });
 
   slot.isBooked = true;
   await slot.save();
 
-  results.push({
+  return {
     type: "diagnostic",
     data: order,
     labOrderId: labOrder._id
-  });
+  };
 }
   throw new Error("Invalid cart type");
 };
@@ -342,7 +364,12 @@ exports.deleteCart = async (userId, cartId) => {
 };
 exports.checkout = async (userId, data) => {
 
-  const { modeOfPayment } = data;
+  const { modeOfPayment } = data || {};
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
 
   const cartItems = await Cart.find({ userId, status: "active" });
 
@@ -405,41 +432,52 @@ const appointment = await Appointment.create({
         throw new Error("Slot not available");
       }
 
+      const test = await DiagnosticTest.findById(item.testId);
+      if (!test) {
+        throw new Error("Diagnostic test not found");
+      }
 
-const existing = await LabOrder.findOne({
-  patientName: user.name,   
-  dob: user.dob
-});
+      const patientName = [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 
-let patientId;
+      const existingQuery = { patientName };
+      if (user.dob) {
+        existingQuery.dob = user.dob;
+      }
 
-if (existing) {
-  patientId = existing.patientId;
-} else {
-  patientId = generatePatientId();
-}
+      const existing = await LabOrder.findOne(existingQuery);
 
-const labOrder = await LabOrder.create({
-  patientName: user.name,
-  age: user.age,
-  gender: user.gender,
-  dob: user.dob,
+      let patientId;
 
-  patientId,   
+      if (existing) {
+        patientId = existing.patientId;
+      } else {
+        patientId = generatePatientId();
+      }
 
-  testName: test.name,
-  orderId: "ORD-" + Date.now(),
+      const labOrder = await LabOrder.create({
+        patientName,
+        age: user.age,
+        gender: user.gender,
+        dob: user.dob,
 
-  scheduledAt: item.date,
-  status: "ordered"
-});
+        patientId,
+
+        testName: test.name,
+        orderId: "ORD-" + Date.now(),
+
+        scheduledAt: item.date,
+        status: "ordered"
+      });
 
       slot.isBooked = true;
       await slot.save();
 
       results.push({
         type: "diagnostic",
-        data: order
+        data: labOrder
       });
     }
 

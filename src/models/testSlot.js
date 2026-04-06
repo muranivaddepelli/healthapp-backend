@@ -10,6 +10,9 @@ const schema = new mongoose.Schema({
   date: Date,
   time: String,
 
+  mode: { type: String, enum: ["home", "walk-in"], required: true },
+
+
   isBooked: {
     type: Boolean,
     default: false

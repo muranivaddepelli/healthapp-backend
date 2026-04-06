@@ -1,6 +1,6 @@
 const service = require("./doctor.service");
 const {logout} = require("../../utils/logout");
-const Appointment = require("../../models/appointment");  
+const Appointment = require("../../models/appointment");
 
 exports.login = async (req, res) => {
   try {

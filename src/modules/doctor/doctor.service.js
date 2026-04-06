@@ -211,14 +211,14 @@ exports.getDashboard = async (doctorId) => {
   });
 
   const totalAppointments =
-    (map["booked"] || 0) +
-    (map["checked-in"] || 0) +
+    (map["waiting"] || 0) +
+    (map["confirmed"] || 0) +
     (map["in-progress"] || 0) +
     (map["completed"] || 0);
 
   const upcomingAppointments =
-    (map["booked"] || 0) +
-    (map["checked-in"] || 0) +
+    (map["waiting"] || 0) +
+    (map["confirmed"] || 0) +
     (map["in-progress"] || 0);
 
   const completedAppointments = map["completed"] || 0;
@@ -230,14 +230,14 @@ exports.getDashboard = async (doctorId) => {
 
     breakdown: {
       total: [
-        map["booked"] || 0,
-        map["checked-in"] || 0,
+        map["waiting"] || 0,
+        map["confirmed"] || 0,
         map["in-progress"] || 0
       ],
 
       upcoming: [
-        map["booked"] || 0,
-        map["checked-in"] || 0,
+        map["waiting"] || 0,
+        map["confirmed"] || 0,
         map["in-progress"] || 0
       ],
 
@@ -310,7 +310,7 @@ exports.createEvent = async (doctorId, data) => {
       userId: data.userId,
       date: data.date,
       time: formatTime(data.time),
-      status: "booked",
+      status: "confirmed",
       consultationFee: data.consultationFee || 0,
       modeOfPayment: "offline"
     });
