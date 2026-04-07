@@ -18,8 +18,8 @@ const DoctorEvent = require("../../models/doctorEvent");
 const LabOrder = require("../../models/LabOrder");
 const User = require("../../models/user");
 const { generatePatientId } = require("../../utils/generatePatientId");
-
-
+const Wallet = require("../../models/wallet");
+const WalletTransaction = require("../../models/walletTransaction");
 
 exports.getProfile = async (userId) => {
   return repo.getProfile(userId);
@@ -273,6 +273,7 @@ if (type === "diagnostic") {
   }
 
   const labOrder = await LabOrder.create({
+    userId,
     patientName: userData.name,
     age: userData.age,
     gender: userData.gender,
@@ -364,8 +365,7 @@ exports.deleteCart = async (userId, cartId) => {
 };
 exports.checkout = async (userId, data) => {
 
-  const { modeOfPayment } = data || {};
-
+const { modeOfPayment, coinsToUse = 0 } = data || {};
   const user = await User.findById(userId);
   if (!user) {
     throw new Error("User not found");
@@ -485,6 +485,65 @@ const appointment = await Appointment.create({
     await item.save();
   }
 
+let totalAmount = 0;
+
+for (let item of cartItems) {
+  if (item.type === "consultation") {
+    totalAmount += item.price;
+  }
+
+  if (item.type === "diagnostic") {
+    const test = await DiagnosticTest.findById(item.testId);
+    if (test) {
+      totalAmount += test.price;
+    }
+  }
+}
+
+let wallet = await Wallet.findOne({ userId });
+const walletBalance = wallet?.balance || 0;
+
+const maxAllowed = Math.floor(totalAmount * 0.5);
+const coinsUsed = Math.min(coinsToUse, walletBalance, maxAllowed);
+const finalAmount = totalAmount - coinsUsed;
+
+if (coinsUsed > 0) {
+  if (!wallet) {
+    wallet = await Wallet.create({ userId, balance: 0 });
+  }
+
+  wallet.balance -= coinsUsed;
+  await wallet.save();
+
+  for (let item of cartItems) {
+  await WalletTransaction.create({
+    userId,
+    type: "redeem",
+    amount: Math.floor(coinsUsed / cartItems.length),
+    source: item.type, 
+    referenceId: item._id
+  });
+}
+}
+
+const coinsEarned = Math.floor(finalAmount * 0.01);
+
+if (!wallet) {
+  wallet = await Wallet.create({ userId, balance: 0 });
+}
+
+wallet.balance += coinsEarned;
+await wallet.save();
+
+for (let item of cartItems) {
+  await WalletTransaction.create({
+    userId,
+    type: "earn",
+    amount: Math.floor(coinsEarned / cartItems.length),
+    source: item.type, 
+    referenceId: item._id
+  });
+}
   return results;
 };
 exports.getMedicines = async (search) => {
@@ -514,13 +573,17 @@ exports.getPharmacyCart = async (userId) => {
   return PharmacyCart.find({ userId, status: "active" })
     .populate("medicineId");
 };
-exports.checkoutPharmacy = async (userId, paymentMethod) => {
+exports.checkoutPharmacy = async (userId, data) => {
+
+  const { paymentMethod, coinsToUse = 0 } = data;
 
   const cartItems = await PharmacyCart.find({
     userId,
     status: "active"
   }).populate("medicineId");
-
+  if (!cartItems.length) {
+  throw new Error("Cart is empty");
+}
   let total = 0;
 
   const items = cartItems.map(i => {
@@ -533,15 +596,59 @@ exports.checkoutPharmacy = async (userId, paymentMethod) => {
     };
   });
 
+  let wallet = await Wallet.findOne({ userId });
+
+
+
+const walletBalance = wallet.balance;
+  const maxAllowed = Math.floor(total * 0.5);
+
+  const coinsUsed = Math.min(coinsToUse, walletBalance, maxAllowed);
+
+  const finalAmount = total - coinsUsed;
+
   const order = await PharmacyOrder.create({
     userId,
     items,
+    paymentMethod,
     totalAmount: total,
-    paymentMethod
+    coinsUsed,
+    finalAmount
+  });
+
+  if (coinsUsed > 0) {
+    if (!wallet) {
+      wallet = await Wallet.create({ userId, balance: 0 });
+    }
+
+    wallet.balance -= coinsUsed;
+    await wallet.save();
+
+    await WalletTransaction.create({
+      userId,
+      type: "redeem",
+      amount: coinsUsed,
+      source: "pharmacy",
+      referenceId: order._id
+    });
+  }
+
+  const coinsEarned = Math.floor(finalAmount * 0.01);
+
+  
+
+  wallet.balance += coinsEarned;
+  await wallet.save();
+
+  await WalletTransaction.create({
+    userId,
+    type: "earn",
+    amount: coinsEarned,
+    source: "pharmacy",
+    referenceId: order._id
   });
 
   for (let item of cartItems) {
-
     await Medicine.findByIdAndUpdate(item.medicineId._id, {
       $inc: { stock: -item.quantity }
     });
@@ -552,6 +659,7 @@ exports.checkoutPharmacy = async (userId, paymentMethod) => {
 
   return order;
 };
+
 exports.addReview = async (userId, data) => {
 
   const { medicineId, rating, comment } = data;
@@ -602,4 +710,103 @@ exports.importFromEMR = async (userId, emrId) => {
   });
 
   return prescription;
+};
+
+
+
+exports.getClinics = async () => {
+
+  const hospitals = await Hospital.find({ isActive: true })
+    .select("hospitalName address phone");
+
+  return hospitals.map(h => ({
+    id: h._id,
+    name: `${h.hospitalName}${h.address ? " - " + h.address : ""}`,
+    phone: h.phone
+  }));
+};
+
+
+exports.getPrescriptions = async (userId) => {
+
+  const data = await Prescription.find({ userId })
+    .sort({ createdAt: -1 });
+
+  return data.map(p => ({
+    id: p._id,
+    doctorName: p.doctorName,
+    date: p.createdAt,
+    location: p.isExternal ? "External prescription" : p.hospitalName,
+    prescriptionId: p.prescriptionId,
+    description: p.notes,
+    fileUrl: p.file
+  }));
+};
+
+
+exports.getConsultationBills = async (userId) => {
+
+  const appointments = await Appointment.find({ userId })
+    .sort({ createdAt: -1 });
+
+  return appointments.map(a => ({
+    id: a._id,
+    invoiceId: a._id,
+    date: a.createdAt,
+    amount: a.consultationFee,
+    type: "consultation"
+  }));
+};
+
+
+exports.getDiagnosticBills = async (userId) => {
+
+  const labs = await LabOrder.find({ userId })
+    .sort({ createdAt: -1 });
+
+  return labs.map(l => ({
+    id: l._id,
+    invoiceId: l.orderId,
+    date: l.createdAt,
+    amount: 0, 
+    type: "diagnostic"
+  }));
+};
+
+exports.getAllBills = async (userId) => {
+
+  const consult = await exports.getConsultationBills(userId);
+  const diagnostic = await exports.getDiagnosticBills(userId);
+
+  return [...consult, ...diagnostic].sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
+};
+
+exports.getReports = async (userId, type) => {
+
+  let filter = {
+    userId,
+    status: "completed", 
+    reportUrl: { $ne: null }
+  };
+
+  if (type === "blood") {
+    filter.reportType = "pdf";
+  }
+
+  if (type === "image") {
+    filter.reportType = "image";
+  }
+
+  const reports = await LabOrder.find(filter)
+    .sort({ createdAt: -1 });
+
+  return reports.map(r => ({
+    id: r._id,
+    title: r.testName,
+    date: r.reportGeneratedAt || r.createdAt,
+    fileUrl: r.reportUrl,
+    type: r.reportType
+  }));
 };

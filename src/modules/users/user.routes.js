@@ -71,6 +71,14 @@ router.post("/pharmacy/prescription", authMiddleware,upload.single("file"),contr
 router.get("/prescription/:id/view", controller.viewPrescription);
 router.get("/patients/search", controller.searchPatient);
 
+router.get("/wallet", controller.getWallet);
+router.get("/wallet/transactions", controller.getWalletTransactions);
+router.get("/clinics", controller.getClinics);
 
-
+router.get("/pharmacy-bills", controller.getPharmacyBills);
+router.get("/prescriptions", controller.getPrescriptions);
+router.get("/bills",  controller.getAllBills);
+router.get("/reports",  controller.getReports);
+router.get("/pharmacy-bill/:id",  controller.getPharmacyBillById);
+router.get("/pharmacy-bill/:id/download",  controller.downloadPharmacyBill);
 module.exports = router;

@@ -5,8 +5,12 @@ const DiagnosticTest = require("../../models/diagnosticTest");
 const TestSlot = require("../../models/testSlot");
 const Prescription = require("../../models/prescription");
 const User = require("../../models/user");
+const Wallet = require("../../models/wallet");
+const WalletTransaction = require("../../models/walletTransaction");
+const PDFDocument = require("pdfkit");
 
 exports.getProfile = async (req, res) => {
+const moment = require("moment");
 
   try {
 
@@ -473,7 +477,7 @@ exports.checkoutPharmacy = async (req, res) => {
   try {
     const data = await service.checkoutPharmacy(
       req.user.id,
-      req.body.paymentMethod
+      req.body.body
     );
     res.json({ success: true, data });
   } catch (err) {
@@ -601,6 +605,225 @@ exports.searchPatient = async (req, res) => {
       .limit(10); 
 
     res.json(patients);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+exports.getWallet = async (req, res) => {
+  const wallet = await Wallet.findOne({ userId: req.user.id });
+
+  res.json({
+    success: true,
+    balance: wallet?.balance || 0
+  });
+};
+
+
+exports.getWalletTransactions = async (req, res) => {
+  try {
+    const { type } = req.query; 
+
+    let filter = { userId: req.user.id };
+
+    if (type === "earn") {
+      filter.type = "earn";
+    }
+
+    if (type === "redeem") {
+      filter.type = "redeem";
+    }
+
+    const data = await WalletTransaction.find(filter)
+      .sort({ createdAt: -1 });
+
+    const grouped = {};
+
+    data.forEach(item => {
+      let label;
+
+      if (moment(item.createdAt).isSame(moment(), "day")) {
+        label = "Today";
+      } else if (
+        moment(item.createdAt).isSame(moment().subtract(1, "day"), "day")
+      ) {
+        label = "Yesterday";
+      } else {
+        label = moment(item.createdAt).format("DD MMM YYYY");
+      }
+
+      if (!grouped[label]) grouped[label] = [];
+
+      grouped[label].push(item);
+    });
+
+    res.json({ success: true, data: grouped });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getClinics = async (req, res) => {
+  try {
+
+    const data = await service.getClinics();
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getPrescriptions = async (req, res) => {
+  const data = await service.getPrescriptions(req.user.id);
+  res.json({ success: true, data });
+};
+
+
+exports.getAllBills = async (req, res) => {
+
+  const data = await service.getAllBills(req.user.id);
+
+  const grouped = {};
+
+  data.forEach(item => {
+    let label;
+
+    if (moment(item.date).isSame(moment(), "day")) {
+      label = "Today";
+    } else if (moment(item.date).isSame(moment().subtract(1, "day"), "day")) {
+      label = "Yesterday";
+    } else {
+      label = moment(item.date).format("DD MMM YYYY");
+    }
+
+    if (!grouped[label]) grouped[label] = [];
+
+    grouped[label].push(item);
+  });
+
+  res.json({ success: true, data: grouped });
+};
+
+
+exports.getPharmacyBills = async (req, res) => {
+  try {
+    const data = await service.getPharmacyBills(req.user.id);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+exports.getReports = async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    const data = await service.getReports(req.user.id, type);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.getPharmacyBills = async (userId) => {
+
+  const orders = await PharmacyOrder.find({ userId })
+    .sort({ createdAt: -1 });
+
+  return orders.map(o => ({
+    id: o._id,
+
+    invoiceId: `INV-${o._id.toString().slice(-6)}`, 
+
+    date: o.createdAt,
+
+    amount: o.finalAmount,
+
+    type: o.paymentMethod === "home"
+      ? "Home Delivery"
+      : "Picked up",
+
+    viewUrl: `/api/user/pharmacy-bill/${o._id}`,   
+    downloadUrl: `/api/user/pharmacy-bill/${o._id}/download` 
+  }));
+};
+
+
+exports.getPharmacyBillById = async (req, res) => {
+  try {
+    const order = await PharmacyOrder.findById(req.params.id)
+      .populate("items.medicineId", "name price");
+
+    if (!order) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    res.json({
+      success: true,
+      data: order
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+exports.downloadPharmacyBill = async (req, res) => {
+  try {
+    const order = await PharmacyOrder.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Bill not found" });
+    }
+
+    const doc = new PDFDocument();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=bill-${order._id}.pdf`
+    );
+
+    doc.pipe(res);
+
+    doc.text("Pharmacy Bill", { align: "center" });
+    doc.moveDown();
+
+    doc.text(`Invoice ID: ${order._id}`);
+    doc.text(`Total: ₹${order.finalAmount}`);
+    doc.text(`Date: ${order.createdAt}`);
+
+    doc.end();
 
   } catch (err) {
     res.status(500).json({ message: err.message });

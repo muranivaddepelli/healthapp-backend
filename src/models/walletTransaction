@@ -1,0 +1,18 @@
+const mongoose = require("mongoose");
+const schema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  source:{
+    type: String,
+    enum: ["pharmacy", "consultation", "diagnostic"]
+  },
+  type: {
+    type: String,
+    enum: ["earn", "redeem"]
+  },
+
+  amount: Number,       
+  referenceId: String   
+
+}, { timestamps: true });
+
+module.exports = mongoose.model("WalletTransaction", schema);

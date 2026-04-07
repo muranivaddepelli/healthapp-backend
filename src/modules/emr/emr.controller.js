@@ -19,3 +19,35 @@ exports.getPrescription = async (req, res) => {
     });
   }
 };
+
+
+exports.getReports = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { type } = req.query;
+
+    const data = await service.getReports(userId, type);
+
+    res.json({ success: true, data });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getPharmacyBills = async (req, res) => {
+  try {
+
+    const userId = req.user.id;
+
+    const data = await service.getPharmacyBills(userId);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
