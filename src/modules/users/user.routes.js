@@ -81,4 +81,6 @@ router.get("/bills",  controller.getAllBills);
 router.get("/reports",  controller.getReports);
 router.get("/pharmacy-bill/:id",  controller.getPharmacyBillById);
 router.get("/pharmacy-bill/:id/download",  controller.downloadPharmacyBill);
+router.get("/orders", controller.getOrders);
+
 module.exports = router;

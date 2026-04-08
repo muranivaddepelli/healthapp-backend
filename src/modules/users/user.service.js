@@ -21,6 +21,9 @@ const { generatePatientId } = require("../../utils/generatePatientId");
 const Wallet = require("../../models/wallet");
 const WalletTransaction = require("../../models/walletTransaction");
 
+
+
+
 exports.getProfile = async (userId) => {
   return repo.getProfile(userId);
 };
@@ -809,4 +812,94 @@ exports.getReports = async (userId, type) => {
     fileUrl: r.reportUrl,
     type: r.reportType
   }));
+};
+
+
+
+function mapPharmacyStatus(status) {
+  if (status === "ordered") return "Confirmed";
+  if (status === "packed") return "Items Packed";
+  if (status === "out_for_delivery") return "Out for Delivery";
+  if (status === "delivered") return "Completed";
+  return status;
+}
+
+function mapConsultationStatus(status) {
+  if (status === "waiting") return "Confirmed";
+  if (status === "completed") return "Completed";
+  return status;
+}
+
+function mapDiagnosticStatus(status) {
+  if (status === "sample_collected") return "Samples collected";
+  if (status === "completed") return "Completed";
+  return status;
+}
+
+exports.getAllOrders = async (userId, type) => {
+  let results = [];
+
+  if (!type || type === "pharmacy" || type === "all") {
+    const pharmacyOrders = await PharmacyOrder.find({ userId })
+      .populate("hospitalId", "hospitalName");
+
+    results.push(
+      ...pharmacyOrders.map((p) => {
+        const status = mapPharmacyStatus(p.status);
+
+        return {
+          orderId: p._id,
+          type: "pharmacy",
+          location: p.hospitalId?.hospitalName || "Pharmacy",
+          status,
+          date: p.createdAt,
+          showTrack: status !== "Completed",
+          showHelp: status === "Completed"
+        };
+      })
+    );
+  }
+
+  if (!type || type === "consultation" || type === "all") {
+    const consultations = await Appointment.find({ userId })
+      .populate("hospitalId", "hospitalName");
+
+    results.push(
+      ...consultations.map((c) => {
+        const status = mapConsultationStatus(c.status);
+
+        return {
+          orderId: c._id,
+          type: "consultation",
+          location: c.hospitalId?.hospitalName || "Hospital",
+          status,
+          date: c.date,
+          showTrack: status !== "Completed",
+          showHelp: status === "Completed"
+        };
+      })
+    );
+  }
+
+  if (!type || type === "tests" || type === "all") {
+    const diagnostics = await LabOrder.find({ userId });
+
+    results.push(
+      ...diagnostics.map((d) => {
+        const status = mapDiagnosticStatus(d.status);
+
+        return {
+          orderId: d.orderId,
+          type: "tests",
+          location: "Diagnostics Lab", 
+          status,
+          date: d.completedAt || d.createdAt,
+          showTrack: status !== "Completed",
+          showHelp: status === "Completed"
+        };
+      })
+    );
+  }
+
+  return results.sort((a, b) => new Date(b.date) - new Date(a.date));
 };

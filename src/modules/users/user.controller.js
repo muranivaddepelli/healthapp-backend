@@ -829,3 +829,24 @@ exports.downloadPharmacyBill = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
+
+exports.getOrders = async (req, res) => {
+  try {
+    const { type = "all" } = req.query;
+
+    const data = await service.getAllOrders(req.user.id, type);
+
+    res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};

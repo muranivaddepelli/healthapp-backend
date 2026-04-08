@@ -8,6 +8,37 @@ const schema = new mongoose.Schema({
     ref: "User"
   },
 
+  doctorName: {
+    type: String
+  },
+
+  clinicName: {
+    type: String
+  },
+
+  date: {
+    type: Date
+  },
+
+  prescriptionId: {
+    type: String
+  },
+  doctorName: {
+    type: String
+  },
+
+  clinicName: {
+    type: String
+  },
+
+  date: {
+    type: Date
+  },
+
+  prescriptionId: {
+    type: String
+  },
+
   file: String,
   publicId: String,
   filename: String,

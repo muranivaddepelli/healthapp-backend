@@ -1,0 +1,1 @@
+router.get("/orders/:orderId", controller.getOrderDetails);
