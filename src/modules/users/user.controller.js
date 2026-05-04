@@ -400,64 +400,89 @@ res.json({
     });
   }
 };
-exports.getSlots = async (req, res) => {
-  try {
-const { testId, date, mode } = req.query;
-
-TestSlot.find({
-  testId,
-  date,
-  mode,
-  isBooked: false
-});
-    res.json({
-      success: true,
-      data: slots
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-};
-
 
 exports.getSlotsByTest = async (req, res) => {
   try {
-    const { testId, mode } = req.query;
+    const { testId, mode, date } = req.query;
 
-    const slots = await TestSlot.find({
+    if (!testId || !mode) {
+      return res.status(400).json({ message: "testId and mode are required" });
+    }
+
+    if (!["home", "walk-in"].includes(mode)) {
+      return res.status(400).json({ message: "Invalid mode" });
+    }
+
+    const query = {
       testId,
       mode,
       isBooked: false
-    });
+    };
+
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (start < today) {
+        return res.status(400).json({ message: "Cannot fetch past slots" });
+      }
+
+      query.date = { $gte: start, $lte: end };
+    }
+
+    const slots = await TestSlot.find(query).sort({ date: 1 });
 
     const grouped = {};
 
+    const formatTo12Hour = (time) => {
+      const [hour, minute] = time.split(":");
+      let h = parseInt(hour);
+
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+
+      return `${h.toString().padStart(2, "0")}:${minute} ${ampm}`;
+    };
+
     slots.forEach(slot => {
-      const date = slot.date.toISOString().split("T")[0];
+      const d = slot.date.toISOString().split("T")[0];
 
-      if (!grouped[date]) grouped[date] = [];
+      if (!grouped[d]) grouped[d] = [];
 
-      grouped[date].push(slot.time);
+      grouped[d].push({
+        time: formatTo12Hour(slot.time), 
+        rawTime: slot.time,              
+        slotId: slot._id
+      });
+    });
+
+    Object.keys(grouped).forEach(d => {
+      grouped[d].sort((a, b) => a.rawTime.localeCompare(b.rawTime));
     });
 
     const result = Object.keys(grouped).map(date => ({
       date,
-      slots: grouped[date]
+      slots: grouped[date].map(({ time, slotId }) => ({
+        time,
+        slotId
+      }))
     }));
 
-    res.json({ success: true, data: result });
+    res.json({
+      success: true,
+      data: result
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
-
-
 exports.getMedicines = async (req, res) => {
   const data = await service.getMedicines(req.query.search || "");
   res.json({ success: true, data });

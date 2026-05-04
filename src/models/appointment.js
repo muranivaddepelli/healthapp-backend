@@ -12,6 +12,9 @@ const appointmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Doctor"
   },
+  phone: {
+  type: String
+},
 
   hospitalId: {
     type: mongoose.Schema.Types.ObjectId,

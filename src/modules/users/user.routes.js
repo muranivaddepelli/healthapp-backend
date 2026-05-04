@@ -50,9 +50,9 @@ router.get("/appointments", authMiddleware, controller.getUserAppointments);
 
 router.get("/diagnostic/tests",authMiddleware,controller.getTests);
 
-router.get("/diagnostic/slots",authMiddleware,controller.getSlots);
+router.get("/diagnostic/slots",authMiddleware,controller.getSlotsByTest);
 
-router.get("/slots-by-test", controller.getSlotsByTest);
+// router.get("/slots-by-test", controller.getSlotsByTest);
 
 
 

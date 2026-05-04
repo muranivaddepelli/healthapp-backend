@@ -51,7 +51,16 @@ const schema = new mongoose.Schema(
     currentLocation: {
       lat: Number,
       lng: Number
-    }
+    },
+    pickupLocation: {
+      lat: Number,
+      lng: Number
+    },
+    deliveryLocation: {
+      lat: Number,
+      lng: Number
+    },
+    
   },
   { timestamps: true }
 );

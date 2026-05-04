@@ -4,6 +4,7 @@ const DiagnosticTest = require("../../models/diagnosticTest");
 const TestSlot = require("../../models/testSlot");
 const path = require("path");
 const fs = require("fs");
+const labService = require("./lab.service");
 
 exports.login = async (req, res) => {
 
@@ -51,6 +52,11 @@ exports.createTest = async (req, res) => {
 exports.addSlots = async (req, res) => {
   try {
     const { testId, date, slots, mode } = req.body;
+    const labId = req.user.id;
+
+    if (!testId || !date) {
+      return res.status(400).json({ message: "testId and date are required" });
+    }
 
     if (!Array.isArray(slots) || slots.length === 0) {
       return res.status(400).json({ message: "Slots required" });
@@ -60,17 +66,90 @@ exports.addSlots = async (req, res) => {
       return res.status(400).json({ message: "Invalid mode" });
     }
 
-    const slotData = slots.map(time => ({
+    const slotDate = new Date(date);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (slotDate < today) {
+      return res.status(400).json({ message: "Cannot add slots for past dates" });
+    }
+
+    const test = await DiagnosticTest.findById(testId);
+    if (!test || test.labId.toString() !== labId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const uniqueSlots = [...new Set(slots)];
+
+    const is24hr = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const is12hr = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
+
+    const convertTo24Hour = (time) => {
+      if (is24hr.test(time)) return time;
+
+      if (is12hr.test(time)) {
+        let [t, modifier] = time.split(" ");
+        let [hours, minutes] = t.split(":");
+
+        hours = parseInt(hours);
+
+        if (modifier.toUpperCase() === "PM" && hours !== 12) {
+          hours += 12;
+        }
+        if (modifier.toUpperCase() === "AM" && hours === 12) {
+          hours = 0;
+        }
+
+        return `${hours.toString().padStart(2, "0")}:${minutes}`;
+      }
+
+      return null;
+    };
+
+    const normalizedSlots = [];
+
+    for (let time of uniqueSlots) {
+      const converted = convertTo24Hour(time);
+
+      if (!converted) {
+        return res.status(400).json({ message: `Invalid time format: ${time}` });
+      }
+
+      normalizedSlots.push(converted);
+    }
+
+    const existingSlots = await TestSlot.find({
+      testId,
+      date: {
+        $gte: new Date(date).setHours(0, 0, 0, 0),
+        $lte: new Date(date).setHours(23, 59, 59, 999)
+      },
+      mode
+    });
+
+    const existingTimes = existingSlots.map(s => s.time);
+
+    const newSlots = normalizedSlots.filter(time => !existingTimes.includes(time));
+
+    if (newSlots.length === 0) {
+      return res.status(400).json({ message: "All slots already exist" });
+    }
+
+    const slotData = newSlots.map(time => ({
       testId,
       date,
-      time,
-      mode
+      time, 
+      mode,
+      isBooked: false
     }));
 
     const created = await TestSlot.insertMany(slotData);
 
     res.json({
       success: true,
+      message: `${created.length} slots added successfully`,
       data: created
     });
 
@@ -78,7 +157,6 @@ exports.addSlots = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 exports.getOrders = async (req, res) => {
   try {
     const { status, search } = req.query;
