@@ -3,6 +3,11 @@ const {logout} = require("../../utils/logout");
 const appointmentService = require("../appointment/appointment.service");
 const Appointment = require("../../models/appointment");
 const User = require("../../models/user");
+const Lab = require("../../models/lab");
+const LabAvailability = require("../../models/labAvailability");
+const DiagnosticOrder = require("../../models/diagnosticOrder");
+const Phlebotomist = require("../../models/phlebotomist");
+
 exports.login = async (req, res) => {
 
   try {
@@ -671,27 +676,35 @@ exports.searchPatient = async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-const patients = await User.find({
-  $or: [
-    { firstName: { $regex: query, $options: "i" } },
-    { lastName: { $regex: query, $options: "i" } }
-  ]
-})
-.limit(10)
-.select("firstName lastName phone age gender");
+    const patients = await User.find({
+      $or: [
+        { firstName: { $regex: query, $options: "i" } },
+        { lastName: { $regex: query, $options: "i" } },
+        { phone: { $regex: query, $options: "i" } }   
+      ]
+    })
+      .limit(10)
+      .select("_id firstName lastName phone age gender dob"); 
+
     res.json({
       success: true,
-      data: patients
+      data: patients.map(p => ({
+        id: p._id,
+        name: `${p.firstName} ${p.lastName}`,
+        phone: p.phone,
+        age: p.age,
+        gender: p.gender,
+        dob: p.dob
+      }))
     });
 
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: err.message
     });
   }
 };
-
-
 
 exports.sendToQueue = async (req, res) => {
   try {
@@ -930,6 +943,379 @@ exports.cancelAppointment = async (req, res) => {
   }
 };
 
+
+exports.getBillingDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findById(id)
+      .populate("userId", "firstName lastName phone")
+      .populate("doctorId", "username specialization consultationFee");
+
+    if (!appointment) {
+      return res.status(404).json({
+        message: "Appointment not found"
+      });
+    }
+
+    if (appointment.hospitalId.toString() !== req.user.hospitalId) {
+      return res.status(403).json({
+        message: "Unauthorized"
+      });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        message: "Cannot bill cancelled appointment"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        appointmentId: appointment._id,
+
+        patientName: `${appointment.userId?.firstName || ""} ${appointment.userId?.lastName || ""}`,
+        phone: appointment.phone || appointment.userId?.phone,
+
+        doctorId: appointment.doctorId?._id,
+        doctorName: appointment.doctorId?.username,
+        specialization: appointment.doctorId?.specialization,
+
+        date: appointment.date,
+        time: appointment.time,
+
+        visitType: appointment.visitType,
+
+        consultationFee: appointment.doctorId?.consultationFee || 0,
+        totalAmount: appointment.doctorId?.consultationFee || 0,
+
+        status: appointment.status
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message
+    });
+  }
+};
+
+
+
+
+const generateLabSlots = () => {
+  const slots = [];
+  let start = 8 * 60;
+  let end = 12 * 60;
+
+  while (start < end) {
+    const h = String(Math.floor(start / 60)).padStart(2, "0");
+    const m = String(start % 60).padStart(2, "0");
+
+    slots.push(`${h}:${m}`);
+    start += 30;
+  }
+
+  return slots;
+};
+
+exports.getLabCalendar = async (req, res) => {
+  try {
+    const { date, hospitalId } = req.query;
+
+    if (!date || !hospitalId) {
+      return res.status(400).json({
+        success: false,
+        message: "date and hospitalId are required"
+      });
+    }
+
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const dayName = getDayName(date);
+
+    const [phlebotomists, orders] = await Promise.all([
+      Phlebotomist.find({
+        hospitalId,
+        isActive: true
+      }),
+
+      DiagnosticOrder.find({
+        hospitalId,
+        date: { $gte: startOfDay, $lte: endOfDay }
+      }).populate("userId", "firstName lastName phone")
+    ]);
+
+    const data = await Promise.all(
+      phlebotomists.map(async (phlebo) => {
+
+        const availability = await LabAvailability.findOne({
+          phlebotomistId: phlebo._id,
+          day: dayName,
+          isAvailable: true
+        });
+
+const phleboOrders = orders.filter(
+  (o) => o.phlebotomistId?.toString() === phlebo._id.toString()
+);
+        let slots = [];
+
+        if (availability) {
+          availability.slots.forEach((slot) => {
+
+            let start = convertToMinutes(slot.startTime);
+            let end = convertToMinutes(slot.endTime);
+
+            while (start < end) {
+              const time = formatTime(start);
+
+              const order = phleboOrders.find((o) => o.time === time);
+
+              if (order && order.status !== "cancelled") {
+                slots.push({
+                  time,
+                  status: mapStatus(order.status),
+                  appointmentId: order._id,
+                  appointment: {
+                    id: order._id,
+                    patientName: `${order.userId?.firstName || ""} ${order.userId?.lastName || ""}`,
+                    phone: order.userId?.phone,
+                    tests: order.tests,
+                    status: order.status
+                  }
+                });
+              } else {
+                slots.push({
+                  time,
+                  status: "free"
+                });
+              }
+
+              start += 30; 
+            }
+          });
+        }
+
+        return {
+          phlebotomistId: phlebo._id,
+          phlebotomistName: phlebo.name,
+          slots
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data
+    });
+
+  } catch (err) {
+    console.error("Lab Calendar Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
+
+exports.createTestAppointment = async (req, res) => {
+  try {
+    const {
+      userId,
+      hospitalId,
+      phlebotomistId ,
+      tests,
+      date,
+      time,
+      address,
+      mode = "home"
+    } = req.body;
+
+    if (!userId || !hospitalId || !phlebotomistId || !date || !time) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing"
+      });
+    }
+
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existing = await DiagnosticOrder.findOne({
+      technicianId: phlebotomistId, // mapping
+      date: { $gte: startOfDay, $lte: endOfDay },
+      time,
+      status: { $ne: "cancelled" }
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot already booked"
+      });
+    }
+
+    const count = await DiagnosticOrder.countDocuments({
+      hospitalId,
+      date: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    const tokenNumber = count + 1;
+
+    const totalAmount = (tests || []).reduce(
+      (sum, t) => sum + (t.price || 0),
+      0
+    );
+
+    const order = await DiagnosticOrder.create({
+      userId,
+      hospitalId,
+      phlebotomistId: phlebotomistId, 
+      tests,
+      totalAmount,
+      date: startOfDay,
+      time,
+      address,
+      mode,
+      status: "confirmed",
+      tokenNumber
+    });
+
+    res.json({
+      success: true,
+      message: "Appointment booked successfully",
+      data: order
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.rescheduleTestAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+
+    const { date, time, phlebotomistId } = req.body;
+
+    if (!appointmentId || !date || !time || !phlebotomistId) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing"
+      });
+    }
+
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existing = await DiagnosticOrder.findOne({
+      _id: { $ne: appointmentId },
+      phlebotomistId,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      time,
+      status: { $ne: "cancelled" }
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Slot already booked"
+      });
+    }
+
+    const updated = await DiagnosticOrder.findByIdAndUpdate(
+      appointmentId,
+      {
+        date: startOfDay,
+        time,
+        phlebotomistId,
+        status: "confirmed"
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Appointment rescheduled successfully",
+      data: updated
+    });
+
+  } catch (err) {
+    console.error("Reschedule Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+exports.cancelTestAppointment = async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment ID is required"
+      });
+    }
+
+    const appointment = await DiagnosticOrder.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found"
+      });
+    }
+
+    if (appointment.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment already cancelled"
+      });
+    }
+
+    appointment.status = "cancelled";
+    await appointment.save();
+
+    return res.json({
+      success: true,
+      message: "Appointment cancelled successfully"
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
+
 exports.logout = logout;
 
 module.exports = {
@@ -940,5 +1326,12 @@ module.exports = {
   searchPatient: exports.searchPatient,
   sendToQueue: exports.sendToQueue,
   rescheduleAppointment: exports.rescheduleAppointment,
-  cancelAppointment: exports.cancelAppointment
+  cancelAppointment: exports.cancelAppointment,
+  getBillingDetails: exports.getBillingDetails,
+  getLabCalendar: exports.getLabCalendar,
+  createTestAppointment: exports.createTestAppointment,
+  rescheduleTestAppointment: exports.rescheduleTestAppointment,
+  cancelTestAppointment: exports.cancelTestAppointment
 };
+
+

@@ -199,6 +199,36 @@ exports.deleteLab = async (req, res) => {
 
 
 
+exports.createPhlebotomist = async (req, res) => {
+  try {
+    const data = await service.createPhlebotomist(req.body);
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+exports.getPhlebotomists = async (req, res) => {
+  const data = await service.getPhlebotomists();
+  res.json(data);
+};
+
+exports.getPhlebotomistById = async (req, res) => {
+  const data = await service.getPhlebotomistById(req.params.id);
+  res.json(data);
+};
+
+exports.updatePhlebotomist = async (req, res) => {
+  const data = await service.updatePhlebotomist(req.params.id, req.body);
+  res.json(data);
+};
+
+exports.deletePhlebotomist = async (req, res) => {
+  const data = await service.deletePhlebotomist(req.params.id);
+  res.json(data);
+};
+
+
 
 
 exports.logout = logout;

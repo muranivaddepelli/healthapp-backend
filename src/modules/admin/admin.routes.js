@@ -50,5 +50,7 @@ router.get("/labs/:id", controller.getLabById);
 router.put("/labs/:id", controller.updateLab);
 router.delete("/labs/:id", controller.deleteLab);
 
+router.post("/phlebotomists", controller.createPhlebotomist);
+
 
 module.exports = router;

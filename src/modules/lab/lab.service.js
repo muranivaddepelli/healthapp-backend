@@ -2,17 +2,45 @@ const bcrypt = require("bcryptjs");
 const repo = require("./lab.repository");
 const { generateStaffAccessToken } = require("../../utils/token");
 
-exports.login = async (hospitalName, username, password) => {
+const LabAvailability = require("../../models/labAvailability");
 
-  const hospital = await repo.findHospitalByName(hospitalName);
+exports.createAvailability = async (body) => {
+  return await LabAvailability.create(body);
+};
+
+exports.getAvailability = async () => {
+  return await LabAvailability.find().populate("phlebotomistId");
+};
+
+exports.login = async (hospitalId, username, password) => {
+
+  console.log(" LOGIN INPUT:");
+  console.log("HospitalId:", hospitalId);
+  console.log("Username:", username);
+
+  const hospital = await repo.findHospitalById(hospitalId);
+
+  console.log(" Hospital found:", hospital);
 
   if (!hospital) {
     const error = new Error("Hospital not found");
     error.statusCode = 404;
     throw error;
   }
+  const Lab = require("../../models/lab");
 
+  const allLabs = await Lab.find({
+    hospitalId: hospital._id
+  });
+
+  console.log(" ALL LABS IN DB:", allLabs);
+
+  console.log(" Searching Lab with:");
+  console.log("hospitalId:", hospital._id);
+  console.log("username:", username);
   const lab = await repo.findLab(hospital._id, username);
+
+  console.log(" Lab found:", lab);
 
   if (!lab) {
     const error = new Error("Lab not found");
@@ -21,6 +49,8 @@ exports.login = async (hospitalName, username, password) => {
   }
 
   const match = await bcrypt.compare(password, lab.password);
+
+  console.log(" Password match:", match);
 
   if (!match) {
     const error = new Error("Invalid password");
@@ -33,13 +63,18 @@ exports.login = async (hospitalName, username, password) => {
     role: "lab"
   });
 
+  console.log(" Login success, token generated");
+
   return {
+    success: true,
     accessToken,
     role: "lab",
     labId: lab._id
   };
-
 };
+
+
+
 
 
 exports.createTest = async (body, file, labId) => {

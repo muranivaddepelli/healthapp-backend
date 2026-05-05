@@ -7,6 +7,16 @@ exports.findHospitalByName = (hospitalName) => {
   return Hospital.findOne({ hospitalName });
 };
 
+exports.findHospitalById = async (hospitalId) => {
+  return await Hospital.findById(hospitalId);
+};
+
+exports.findLab = async (hospitalId, username) => {
+  return await Lab.findOne({
+    hospitalId: new mongoose.Types.ObjectId(hospitalId),
+    name: { $regex: `^${username.trim()}$`, $options: "i" }
+  });
+};
 exports.findLab = (hospitalId, username) => {
   return Lab.findOne({
     hospitalId,

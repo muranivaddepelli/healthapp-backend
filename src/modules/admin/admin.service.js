@@ -2,6 +2,8 @@ const bcrypt = require("bcryptjs");
 const repo = require("./admin.repository");
 const {generateStaffAccessToken} = require("../../utils/token");
 const {getCoordinates} = require("../../utils/geocode");
+const Phlebotomist = require("../../models/phlebotomist");
+
 
 exports.login = async (username, password) => {
 
@@ -142,3 +144,24 @@ exports.getLabById = (id) => repo.getLabById(id);
 exports.updateLab = (id, data) => repo.updateLab(id, data);
 
 exports.deleteLab = (id) => repo.deleteLab(id);
+
+
+exports.createPhlebotomist = async (body) => {
+  return await Phlebotomist.create(body);
+};
+
+exports.getPhlebotomists = async () => {
+  return await Phlebotomist.find().populate("labId");
+};
+
+exports.getPhlebotomistById = async (id) => {
+  return await Phlebotomist.findById(id);
+};
+
+exports.updatePhlebotomist = async (id, body) => {
+  return await Phlebotomist.findByIdAndUpdate(id, body, { new: true });
+};
+
+exports.deletePhlebotomist = async (id) => {
+  return await Phlebotomist.findByIdAndDelete(id);
+};

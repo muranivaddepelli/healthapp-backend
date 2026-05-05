@@ -11,6 +11,10 @@ router.post("/login", controller.login);
 router.use(authMiddleware, roleMiddleware("lab"));
 
 
+router.post("/lab-availability", controller.createAvailability);
+router.get("/", controller.getAvailability);
+
+
 
 router.post("/logout", authMiddleware,roleMiddleware("lab"), controller.logout);
 router.post("/tests",upload.single("image"),  controller.createTest);
@@ -30,4 +34,6 @@ router.get("/patients/:patientId/reports", controller.getPatientReports);
 router.put("/update-report/:orderId",upload.single("report"),controller.updateReport);
 router.get("/report/view/:orderId", controller.viewReport);
 router.get("/report/download/:orderId", controller.downloadReport);
+
+router.post("/lab-availability", controller.createLabAvailability);
 module.exports = router;

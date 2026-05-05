@@ -38,4 +38,14 @@ router.get("/patients/search", controller.searchPatient);
 router.patch("/appointments/:id/queue", controller.sendToQueue);
 router.patch("/appointments/:id/reschedule", controller.rescheduleAppointment);
 router.patch("/appointments/:id/cancel", controller.cancelAppointment);
+router.get("/appointments/:id/billing", controller.getBillingDetails);
+
+console.log(" Lab-test routes loaded");
+
+router.get("/lab-calendar", controller.getLabCalendar);
+router.post("/create-test-appointment", controller.createTestAppointment);
+router.put("/reschedule-test-appointment/:appointmentId", controller.rescheduleTestAppointment);
+router.put("/cancel-test-appointment/:appointmentId",controller.cancelTestAppointment);
+
+
 module.exports = router;

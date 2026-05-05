@@ -5,35 +5,42 @@ const TestSlot = require("../../models/testSlot");
 const path = require("path");
 const fs = require("fs");
 const labService = require("./lab.service");
+const Lab = require("../../models/lab");
+const bcrypt = require("bcrypt");
+
+
+exports.createAvailability = async (req, res) => {
+  try {
+    const data = await service.createAvailability(req.body);
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+exports.getAvailability = async (req, res) => {
+  const data = await service.getAvailability();
+  res.json(data);
+};
 
 exports.login = async (req, res) => {
-
   try {
+    const { hospitalId, name: username, password } = req.body;
 
-    const { hospitalName, username, password } = req.body;
-    if (!hospitalName || !username || !password) {
+    if (!hospitalId || !username || !password) {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    const data = await service.login(
-      hospitalName,
-      username,
-      password
-    );
+    const data = await service.login(hospitalId, username, password);
 
     res.json(data);
 
   } catch (err) {
-
     res.status(err.statusCode || 500).json({
       message: err.message
     });
-
   }
-
 };
-
-
 
 exports.createTest = async (req, res) => {
   try {
@@ -399,5 +406,25 @@ exports.downloadReport = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.createLabAvailability = async (req, res) => {
+  try {
+    const { technicianId, day, slots } = req.body;
+
+    const availability = await LabAvailability.create({
+      technicianId,
+      day,
+      slots
+    });
+
+    res.json({
+      success: true,
+      data: availability
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 exports.logout = logout;

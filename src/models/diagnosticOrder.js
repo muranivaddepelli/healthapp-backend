@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const diagnosticOrderSchema = new mongoose.Schema({
@@ -7,15 +6,29 @@ const diagnosticOrderSchema = new mongoose.Schema({
     ref: "User"
   },
 
-  testId: {
+  hospitalId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "DiagnosticTest"
+    ref: "Hospital"
   },
 
-  slotId: {
+  phlebotomistId: {   
     type: mongoose.Schema.Types.ObjectId,
-    ref: "TestSlot"
+    ref: "Phlebotomist",  
+    required: true
   },
+
+  tests: [
+    {
+      testId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "DiagnosticTest"
+      },
+      name: String,
+      price: Number
+    }
+  ],
+
+  totalAmount: Number,
 
   date: Date,
   time: String,
@@ -27,9 +40,21 @@ const diagnosticOrderSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["booked", "completed", "cancelled"],
-    default: "booked"
-  }
+    enum: [
+      "confirmed",
+      "waiting",
+      "in-progress",
+      "completed",
+      "cancelled"
+    ],
+    default: "confirmed"
+  },
+
+  tokenNumber: String,
+
+  checkedInAt: Date,
+  inProgressAt: Date,
+  completedAt: Date
 
 }, { timestamps: true });
 
